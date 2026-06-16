@@ -66,6 +66,33 @@ def ollama_request(endpoint: str, payload: dict | None = None, method: str = "PO
     return json.loads(body)
 
 
+def ollama_stream_request(endpoint: str, payload: dict | None = None, method: str = "POST"):
+    if payload is None and method == "POST":
+        payload = {}
+    req = Request(
+        f"{OLLAMA_URL}{endpoint}",
+        method=method,
+        headers={"Content-Type": "application/json"},
+    )
+    if payload is not None:
+        req.data = json.dumps(payload).encode("utf-8")
+
+    try:
+        with urlopen(req, timeout=3600) as response:
+            while True:
+                line = response.readline()
+                if not line:
+                    break
+                text = line.decode("utf-8").strip()
+                if not text:
+                    continue
+                yield json.loads(text)
+    except HTTPError as exc:
+        raise OllamaRequestError(f"Ollama API returned {exc.code}: {exc.reason}", status_code=exc.code) from exc
+    except URLError as exc:
+        raise OllamaRequestError("Cannot reach Ollama at 127.0.0.1:11434") from exc
+
+
 def ollama_get_tags():
     try:
         data = ollama_request("/api/tags", method="GET")
@@ -82,28 +109,43 @@ def ollama_get_tags():
     return data.get("models", [])
 
 
-def ollama_pull_model(model_name: str) -> dict:
+def ollama_pull_model_events(model_name: str):
+    model_name = str(model_name).strip()
+    if not MODEL_NAME_RE.fullmatch(model_name):
+        yield {"model": model_name, "error": "Invalid model name", "done": True}
+        return
+
+    try:
+        for event in ollama_stream_request("/api/pull", {"name": model_name, "stream": True}):
+            if isinstance(event, dict):
+                event.setdefault("model", model_name)
+                yield event
+    except OllamaRequestError as exc:
+        yield {"model": model_name, "error": str(exc), "done": True}
+
+
+def ollama_remove_model(model_name: str) -> dict:
     model_name = str(model_name).strip()
     if not MODEL_NAME_RE.fullmatch(model_name):
         raise OllamaRequestError("Invalid model name")
 
     try:
         result = subprocess.run(
-            ["ollama", "pull", model_name],
+            ["ollama", "rm", model_name],
             capture_output=True,
             text=True,
             check=False,
         )
     except OSError as exc:
-        raise OllamaRequestError("Failed to execute ollama pull") from exc
+        raise OllamaRequestError("Failed to execute ollama rm") from exc
 
     output = "\n".join(part for part in (result.stdout.strip(), result.stderr.strip()) if part).strip()
     if result.returncode != 0:
-        raise OllamaRequestError(output or f"ollama pull failed with exit code {result.returncode}")
+        raise OllamaRequestError(output or f"ollama rm failed with exit code {result.returncode}")
 
     return {
         "model": model_name,
-        "output": output or f"Installed {model_name}",
+        "output": output or f"Removed {model_name}",
     }
 
 
@@ -133,6 +175,20 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(content)
 
+    def _send_ndjson_stream(self, events):
+        self.send_response(200)
+        self._set_cors()
+        self.send_header("Content-Type", "application/x-ndjson; charset=utf-8")
+        self.send_header("Cache-Control", "no-store")
+        self.end_headers()
+        try:
+            for event in events:
+                payload = (json.dumps(event) + "\n").encode("utf-8")
+                self.wfile.write(payload)
+                self.wfile.flush()
+        except BrokenPipeError:
+            return
+
     def do_OPTIONS(self):
         self.send_response(200)
         self._set_cors()
@@ -155,7 +211,7 @@ class Handler(BaseHTTPRequestHandler):
         self.send_error(404, "Not Found")
 
     def do_POST(self):
-        if self.path not in ("/api/chat", "/api/install"):
+        if self.path not in ("/api/chat", "/api/install", "/api/remove"):
             self._send_json(404, {"error": "Not Found"})
             return
 
@@ -174,7 +230,19 @@ class Handler(BaseHTTPRequestHandler):
                 return
 
             try:
-                payload = ollama_pull_model(model)
+                self._send_ndjson_stream(ollama_pull_model_events(model))
+            except OllamaRequestError as exc:
+                self._send_json(503, {"error": str(exc)})
+            return
+
+        if self.path == "/api/remove":
+            model = req.get("model")
+            if not model:
+                self._send_json(400, {"error": "Payload must include model"})
+                return
+
+            try:
+                payload = ollama_remove_model(model)
                 self._send_json(200, payload)
             except OllamaRequestError as exc:
                 self._send_json(503, {"error": str(exc)})
