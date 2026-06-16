@@ -1,0 +1,2025 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Ollama Studio</title>
+    <style>
+      :root {
+        --bg: #040712;
+        --panel: rgba(12, 18, 34, 0.84);
+        --panel-strong: rgba(17, 24, 43, 0.96);
+        --line: rgba(148, 163, 184, 0.24);
+        --text: #edf1ff;
+        --muted: #9aa6bf;
+        --accent: #22d3ee;
+        --accent-2: #60a5fa;
+        --radius-lg: 18px;
+        --radius-md: 12px;
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+        color: var(--text);
+        background:
+          radial-gradient(circle at 12% 2%, rgba(139, 92, 246, 0.24), transparent 38%),
+          radial-gradient(circle at 85% 88%, rgba(34, 211, 238, 0.23), transparent 42%),
+          linear-gradient(155deg, #05070f, #061027 45%, #040815 100%);
+      }
+
+      body.modal-open {
+        overflow: hidden;
+      }
+
+      .app {
+        width: 100%;
+        margin: 0 auto;
+        min-height: 100vh;
+        display: grid;
+        grid-template-columns: 320px minmax(0, 1fr);
+        gap: 12px;
+        padding: 10px;
+        align-items: stretch;
+      }
+
+      .panel {
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        background: linear-gradient(160deg, var(--panel), var(--panel-strong));
+        backdrop-filter: blur(10px);
+        box-shadow: 0 22px 50px rgba(0, 0, 0, 0.32);
+      }
+
+      .sidebar {
+        order: 1;
+        position: sticky;
+        top: 10px;
+        align-self: start;
+        height: calc(100vh - 20px);
+        padding: 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        overflow: hidden;
+      }
+
+      .sidebar h1 {
+        margin: 4px 0;
+        letter-spacing: 0.02em;
+        font-size: 1rem;
+        font-weight: 600;
+      }
+
+      .row {
+        display: grid;
+        gap: 8px;
+      }
+
+      .btn,
+      .input,
+      .select,
+      .textarea {
+        width: 100%;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        color: var(--text);
+        background: rgba(9, 13, 24, 0.9);
+        padding: 9px 11px;
+        font-size: 0.88rem;
+      }
+
+      .btn {
+        border: 0;
+        font-weight: 650;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+      }
+
+      .btn:hover { filter: brightness(1.08); }
+
+      .btn-primary {
+        background: linear-gradient(130deg, var(--accent), var(--accent-2));
+        color: #030712;
+      }
+
+      .btn-ghost {
+        background: rgba(15, 23, 42, 0.84);
+      }
+
+      .meta-pill {
+        border-radius: 999px;
+        border: 1px solid var(--line);
+        padding: 8px 12px;
+        color: var(--muted);
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+        font-size: 0.82rem;
+      }
+
+      .dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #22c55e;
+        flex: 0 0 auto;
+      }
+
+      .history {
+        margin-top: 2px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        padding: 8px;
+        background: rgba(6, 11, 20, 0.68);
+        min-height: 0;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        overflow: hidden;
+      }
+
+      .history-list {
+        min-height: 0;
+        flex: 1;
+        overflow: auto;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        justify-content: flex-start;
+        gap: 8px;
+      }
+
+      .history-item {
+        border: 1px solid transparent;
+        border-radius: 10px;
+        padding: 9px;
+        cursor: pointer;
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        flex: 0 0 auto;
+        transition: transform .16s ease, border-color .16s ease;
+      }
+
+      .history-item:hover {
+        transform: translateY(-1px);
+        border-color: var(--line);
+        background: rgba(255, 255, 255, 0.025);
+      }
+
+      .history-item.active {
+        border-color: rgba(96, 165, 250, 0.86);
+        background: rgba(96, 165, 250, 0.18);
+      }
+
+      .history-item h3 {
+        margin: 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-size: 0.88rem;
+        font-weight: 600;
+      }
+
+      .history-item .actions {
+        margin-top: 0;
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .icon-btn {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text);
+        padding: 3px 8px;
+        font-size: 0.7rem;
+        line-height: 1;
+        cursor: pointer;
+      }
+
+      .control-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .slider-wrap {
+        display: grid;
+        gap: 6px;
+      }
+
+      .slider-head {
+        color: var(--muted);
+        font-size: 0.74rem;
+        display: flex;
+        justify-content: space-between;
+      }
+
+      .main {
+        order: 2;
+        min-height: calc(100vh - 20px);
+        display: flex;
+        flex-direction: column;
+        min-width: 0;
+      }
+
+      .main-header {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: start;
+        gap: 12px;
+        border-bottom: 1px solid var(--line);
+        padding: 14px;
+      }
+
+      .main-title {
+        min-width: 0;
+      }
+
+      .header-actions {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        align-items: flex-start;
+      }
+
+      .header-actions .btn {
+        width: auto;
+      }
+
+      .status {
+        margin: 10px 14px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: rgba(10, 14, 26, 0.75);
+        padding: 9px 12px;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 0.82rem;
+        color: var(--muted);
+      }
+
+      .chat {
+        margin: 0 14px;
+        border: 1px solid var(--line);
+        border-radius: var(--radius-md);
+        background: rgba(7, 11, 22, 0.75);
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        flex: 1;
+      }
+
+      .chat-scroll {
+        min-height: 0;
+        flex: 1;
+        overflow: auto;
+        padding: 18px;
+        display: flex;
+        flex-direction: column;
+        gap: 14px;
+      }
+
+      .bubble {
+        max-width: min(100%, 1120px);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 12px 13px;
+        line-height: 1.6;
+        position: relative;
+        animation: rise .16s ease;
+        box-shadow: 0 14px 36px rgba(0, 0, 0, 0.18);
+      }
+
+      .user {
+        align-self: flex-end;
+        max-width: min(78%, 920px);
+        background: linear-gradient(150deg, #22d3ee, #0ea5e9);
+        color: #0b1220;
+        font-weight: 500;
+      }
+
+      .assistant {
+        align-self: flex-start;
+        width: min(100%, 1120px);
+        background: linear-gradient(180deg, rgba(24, 33, 54, 0.98), rgba(19, 28, 46, 0.98));
+      }
+
+      .error {
+        border-color: rgba(248, 113, 113, 0.45);
+        background: rgba(127, 29, 29, 0.45);
+      }
+
+      .bubble .meta {
+        margin-top: 7px;
+        color: #9aa8c7;
+        font-size: 0.73rem;
+      }
+
+      .bubble .message-actions {
+        margin-top: 10px;
+        display: flex;
+        gap: 6px;
+      }
+
+      .empty {
+        margin: auto;
+        color: var(--muted);
+        text-align: center;
+      }
+
+      .composer {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 6px;
+        align-items: end;
+        padding: 10px;
+      }
+
+      .textarea {
+        resize: none;
+        min-height: 88px;
+        max-height: 220px;
+      }
+
+      .helper {
+        color: var(--muted);
+        font-size: 0.73rem;
+        margin-top: 5px;
+      }
+
+      .message {
+        display: grid;
+        gap: 12px;
+        color: inherit;
+        overflow-wrap: anywhere;
+      }
+
+      .message > :first-child {
+        margin-top: 0;
+      }
+
+      .message > :last-child {
+        margin-bottom: 0;
+      }
+
+      .message p,
+      .message ul,
+      .message ol,
+      .message pre,
+      .message blockquote,
+      .message .math-block {
+        margin: 0;
+      }
+
+      .message h1,
+      .message h2,
+      .message h3,
+      .message h4 {
+        margin: 0;
+        line-height: 1.25;
+        letter-spacing: -0.02em;
+      }
+
+      .message h1 { font-size: 1.2rem; }
+      .message h2 { font-size: 1.08rem; }
+      .message h3 { font-size: 0.98rem; }
+      .message h4 { font-size: 0.92rem; }
+
+      .message ul,
+      .message ol {
+        padding-left: 1.2rem;
+        display: grid;
+        gap: 6px;
+      }
+
+      .message li {
+        margin: 0;
+      }
+
+      .message strong {
+        color: #f8fbff;
+        font-weight: 700;
+      }
+
+      .message em {
+        color: #cad8f4;
+      }
+
+      .message code,
+      .message pre,
+      .composer,
+      .textarea {
+        font-family: "IBM Plex Mono", "Fira Code", "SFMono-Regular", Consolas, monospace;
+      }
+
+      .message code.inline-code {
+        padding: 0.15rem 0.38rem;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.08);
+        border: 1px solid rgba(148, 163, 184, 0.15);
+        font-size: 0.92em;
+      }
+
+      .code-block {
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        border-radius: 14px;
+        overflow: hidden;
+        background: rgba(5, 10, 20, 0.82);
+      }
+
+      .code-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 9px 11px;
+        background: rgba(255, 255, 255, 0.04);
+        border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+      }
+
+      .code-lang {
+        color: #9ec7ff;
+        font-size: 0.76rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+      }
+
+      .copy-code-btn {
+        width: auto;
+        padding: 5px 9px;
+        border-radius: 999px;
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        background: rgba(255, 255, 255, 0.05);
+        color: var(--text);
+        cursor: pointer;
+        font-size: 0.72rem;
+      }
+
+      .code-block pre {
+        margin: 0;
+        padding: 12px;
+        overflow: auto;
+        font-size: 0.86rem;
+        line-height: 1.55;
+        color: #dbe8ff;
+        white-space: pre;
+      }
+
+      .math-block {
+        padding: 10px 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(96, 165, 250, 0.18);
+        background: rgba(96, 165, 250, 0.08);
+        color: #d8e9ff;
+        font-family: "STIX Two Text", "Cambria Math", "Times New Roman", serif;
+        overflow-x: auto;
+      }
+
+      .math-inline {
+        display: inline-block;
+        padding: 0.08rem 0.35rem;
+        border-radius: 7px;
+        background: rgba(96, 165, 250, 0.08);
+        border: 1px solid rgba(96, 165, 250, 0.12);
+        font-family: "STIX Two Text", "Cambria Math", "Times New Roman", serif;
+      }
+
+      .message blockquote {
+        border-left: 3px solid rgba(96, 165, 250, 0.5);
+        padding-left: 12px;
+        color: #cad8f4;
+      }
+
+      .toast {
+        position: fixed;
+        right: 20px;
+        bottom: 14px;
+        border-radius: 10px;
+        border: 1px solid var(--line);
+        background: rgba(9, 15, 32, 0.92);
+        color: var(--text);
+        padding: 11px 14px;
+        font-size: 0.82rem;
+        opacity: 0;
+        transform: translateY(12px);
+        transition: all .15s ease;
+      }
+
+      .toast.show {
+        opacity: 1;
+        transform: translateY(0);
+      }
+
+      .footer {
+        color: var(--muted);
+        font-size: .73rem;
+        padding: 0 14px 14px;
+      }
+
+      .settings-btn {
+        width: auto;
+        padding-left: 10px;
+        padding-right: 10px;
+        gap: 6px;
+      }
+
+      #clearSearchBtn {
+        width: auto;
+        align-self: flex-start;
+      }
+
+      .settings-modal {
+        position: fixed;
+        inset: 0;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 40;
+        padding: 16px;
+        overscroll-behavior: contain;
+      }
+
+      .settings-modal.open {
+        display: flex;
+      }
+
+      .settings-overlay {
+        position: absolute;
+        inset: 0;
+        background: rgba(2, 6, 18, 0.6);
+        backdrop-filter: blur(2px);
+      }
+
+      .settings-shell {
+        position: relative;
+        width: min(560px, 100%);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: linear-gradient(170deg, var(--panel), var(--panel-strong));
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.42);
+        padding: 12px 14px;
+        display: grid;
+        gap: 10px;
+      }
+
+      .settings-title {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+        font-size: 0.95rem;
+      }
+
+      .settings-grid {
+        display: grid;
+        gap: 10px;
+      }
+
+      .setting-row {
+        display: grid;
+        gap: 7px;
+      }
+
+      .setting-row > label {
+        font-size: 0.75rem;
+        color: var(--muted);
+        letter-spacing: 0.01em;
+      }
+
+      .settings-actions {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        margin-top: 4px;
+      }
+
+      .settings-actions .btn {
+        width: auto;
+        padding: 8px 12px;
+      }
+
+      .catalog-shell {
+        position: relative;
+        width: min(980px, 100%);
+        max-height: calc(100vh - 32px);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: linear-gradient(170deg, var(--panel), var(--panel-strong));
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.42);
+        padding: 14px;
+        display: grid;
+        grid-template-rows: auto auto minmax(0, 1fr) auto;
+        gap: 12px;
+        overflow: hidden;
+      }
+
+      .catalog-toolbar {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 220px auto;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .catalog-grid {
+        min-height: 0;
+        overflow: auto;
+        overscroll-behavior: contain;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 12px;
+        padding-right: 2px;
+      }
+
+      .model-card {
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        border-radius: 14px;
+        background: rgba(8, 13, 24, 0.82);
+        padding: 12px;
+        display: grid;
+        gap: 10px;
+      }
+
+      .model-card h3 {
+        margin: 0;
+        font-size: 0.98rem;
+      }
+
+      .model-card p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.82rem;
+        line-height: 1.5;
+      }
+
+      .model-meta,
+      .model-tags {
+        display: flex;
+        gap: 6px;
+        flex-wrap: wrap;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(148, 163, 184, 0.12);
+        color: #cfe2ff;
+        font-size: 0.72rem;
+      }
+
+      .pill.success {
+        color: #aff6c8;
+        border-color: rgba(34, 197, 94, 0.2);
+        background: rgba(34, 197, 94, 0.09);
+      }
+
+      .model-actions,
+      .install-inline {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+
+      .model-actions .btn,
+      .install-inline .btn {
+        width: auto;
+      }
+
+      .model-pull {
+        font-family: "IBM Plex Mono", "Fira Code", "SFMono-Regular", Consolas, monospace;
+        font-size: 0.78rem;
+        color: #9ec7ff;
+      }
+
+      .catalog-footer {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        align-items: center;
+        color: var(--muted);
+        font-size: 0.78rem;
+      }
+
+      .catalog-footer .btn {
+        width: auto;
+      }
+
+      .catalog-empty {
+        border: 1px dashed rgba(148, 163, 184, 0.18);
+        border-radius: 14px;
+        padding: 22px;
+        text-align: center;
+        color: var(--muted);
+      }
+
+      @keyframes rise {
+        from { opacity: 0; transform: translateY(8px); }
+        to { opacity: 1; transform: translateY(0); }
+      }
+
+      @media (max-width: 1080px) {
+        .app { grid-template-columns: 1fr; }
+        .main { order: 1; min-height: 54vh; }
+        .sidebar {
+          order: 2;
+          position: static;
+          top: auto;
+          height: auto;
+          max-height: 44vh;
+          min-height: auto;
+        }
+        .main-header { grid-template-columns: 1fr; }
+        .header-actions { justify-content: flex-start; }
+        .assistant,
+        .user,
+        .bubble { max-width: 100%; width: auto; }
+        .catalog-toolbar { grid-template-columns: 1fr; }
+      }
+    </style>
+  </head>
+  <body>
+    <div id="toast" class="toast"></div>
+
+    <main class="app">
+      <section class="panel sidebar">
+        <h1>Ollama Studio</h1>
+
+        <div class="row">
+          <div class="meta-pill">
+            <span class="dot" id="connectionDot"></span>
+            <span id="connectionText">Connecting…</span>
+          </div>
+
+          <button class="btn btn-primary" id="newChatBtn" type="button">+ New chat</button>
+          <div class="control-grid">
+            <button class="btn btn-ghost" id="refreshModelsBtn" type="button">Refresh models</button>
+            <button class="btn btn-ghost" id="importBtn" type="button">Import JSON</button>
+          </div>
+          <button class="btn btn-ghost" id="discoverModelsBtn" type="button">Discover models</button>
+          <button class="btn btn-ghost" id="exportAllBtn" type="button">Export all chats</button>
+        </div>
+
+        <div class="history">
+          <input class="input" id="searchInput" type="search" placeholder="Search conversations" />
+          <div class="control-grid">
+            <select class="select" id="sortSelect">
+              <option value="recent">Sort: recent</option>
+              <option value="name">Sort: name</option>
+            </select>
+            <select class="select" id="filterSelect">
+              <option value="all">All</option>
+              <option value="pinned">Pinned only</option>
+            </select>
+          </div>
+          <button class="btn btn-ghost" id="clearSearchBtn" type="button">Clear</button>
+          <div id="historyList" class="history-list"></div>
+        </div>
+      </section>
+
+        <section class="panel main">
+          <div class="main-header">
+            <div class="main-title">
+              <input class="input" id="titleInput" value="New chat" />
+            </div>
+            <div class="header-actions">
+              <button class="btn btn-ghost" id="duplicateBtn" type="button">Duplicate</button>
+              <button class="btn btn-ghost" id="renameBtn" type="button">Rename</button>
+              <button class="btn btn-ghost" id="clearBtn" type="button">Clear</button>
+              <button class="btn btn-ghost" id="deleteBtn" type="button">Delete</button>
+              <button class="btn btn-ghost settings-btn" id="settingsToggleBtn" type="button">Settings</button>
+            </div>
+          </div>
+
+        <div class="status">
+          <div id="statusText">Initializing…</div>
+          <div id="statsText">No messages</div>
+        </div>
+
+        <div class="chat">
+          <div id="chatScroll" class="chat-scroll">
+            <div id="emptyHint" class="empty">Ask anything to begin.</div>
+          </div>
+          <form id="chatForm" class="composer">
+            <div>
+              <textarea id="messageInput" class="textarea" placeholder="Type your message"></textarea>
+              <div class="helper" id="helperText">Enter = send, Shift + Enter = new line</div>
+            </div>
+            <button class="btn btn-primary" type="submit" id="sendBtn">Send</button>
+          </form>
+        </div>
+
+        <div class="footer">Shortcuts: Enter to send, Shift+Enter newline.</div>
+      </section>
+    </main>
+
+    <div id="settingsModal" class="settings-modal" aria-hidden="true">
+      <div id="settingsBackdrop" class="settings-overlay"></div>
+      <div class="settings-shell" role="dialog" aria-modal="true" aria-labelledby="settingsTitle">
+        <div class="settings-title">
+          <strong id="settingsTitle">Conversation settings</strong>
+          <button class="icon-btn" id="closeSettingsBtn" type="button">✕</button>
+        </div>
+
+        <div class="settings-grid">
+          <div class="setting-row">
+            <label for="modelSelect">Model</label>
+            <select class="select" id="modelSelect"></select>
+          </div>
+
+          <div class="setting-row">
+            <div class="slider-wrap">
+              <div class="slider-head"><span>Temperature</span><span id="temperatureValue">0.70</span></div>
+              <input type="range" min="0" max="2" step="0.05" value="0.70" id="temperatureInput" />
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="slider-wrap">
+              <div class="slider-head"><span>Top-P</span><span id="topPValue">0.90</span></div>
+              <input type="range" min="0" max="1" step="0.05" value="0.90" id="topPInput" />
+            </div>
+          </div>
+
+          <div class="setting-row">
+            <div class="slider-wrap">
+              <div class="slider-head"><span>Max tokens</span><span id="maxTokensValue">2048</span></div>
+              <input type="range" min="128" max="8192" step="128" value="2048" id="maxTokensInput" />
+            </div>
+          </div>
+        </div>
+
+        <div class="settings-actions">
+          <button class="btn btn-ghost" id="stopBtn" type="button" disabled>Stop</button>
+          <button class="btn btn-ghost" id="exportBtn" type="button">Export current</button>
+          <button class="btn btn-primary" id="closeSettingsSaveBtn" type="button">Done</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="catalogModal" class="settings-modal" aria-hidden="true">
+      <div id="catalogBackdrop" class="settings-overlay"></div>
+      <div class="catalog-shell" role="dialog" aria-modal="true" aria-labelledby="catalogTitle">
+        <div class="settings-title">
+          <strong id="catalogTitle">Install Ollama models</strong>
+          <button class="icon-btn" id="closeCatalogBtn" type="button">Close</button>
+        </div>
+
+        <div class="catalog-toolbar">
+          <input class="input" id="catalogSearchInput" type="search" placeholder="Search model families" />
+          <input class="input" id="customModelInput" type="text" placeholder="Custom model, e.g. qwen2.5-coder:7b" />
+          <button class="btn btn-primary" id="installCustomBtn" type="button">Install</button>
+        </div>
+
+        <div id="catalogGrid" class="catalog-grid"></div>
+
+        <div class="catalog-footer">
+          <div>Catalog cards use a curated set from the current Ollama Library. Custom install accepts any valid `model[:tag]`.</div>
+          <button class="btn btn-ghost" id="refreshCatalogBtn" type="button">Refresh installed list</button>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      const STORAGE_KEY = "ollama-modern-chat-v5";
+      const DEFAULT_TEMP = 0.7;
+      const DEFAULT_TOP_P = 0.9;
+      const DEFAULT_MAX_TOKENS = 2048;
+      const MODEL_LIBRARY = [
+        { name: "gemma4", pull: "gemma4:e2b", summary: "Compact frontier-grade model for reasoning, coding, and multimodal workflows.", sizes: "e2b e4b 12b 26b 31b", tags: ["general", "code", "vision"] },
+        { name: "qwen2.5-coder", pull: "qwen2.5-coder:7b", summary: "Strong coding model with practical size and excellent general developer utility.", sizes: "0.5b 1.5b 3b 7b 14b 32b", tags: ["code"] },
+        { name: "qwen3", pull: "qwen3:4b", summary: "Modern general-purpose family with strong reasoning and good small-to-mid options.", sizes: "0.6b 1.7b 4b 8b 14b 30b 32b 235b", tags: ["general", "reasoning"] },
+        { name: "deepseek-r1", pull: "deepseek-r1:8b", summary: "Reasoning-focused family suited for harder multi-step prompts.", sizes: "1.5b 7b 8b 14b 32b 70b 671b", tags: ["reasoning"] },
+        { name: "llama3.2", pull: "llama3.2:3b", summary: "Small and fast Meta model family for local everyday chat and drafting.", sizes: "1b 3b", tags: ["general", "small"] },
+        { name: "llama3.1", pull: "llama3.1:8b", summary: "Reliable general model family with larger variants available when hardware allows.", sizes: "8b 70b 405b", tags: ["general"] },
+        { name: "mistral", pull: "mistral:7b", summary: "Balanced instruct model that remains a practical default for many local setups.", sizes: "7b", tags: ["general"] },
+        { name: "phi4", pull: "phi4", summary: "Microsoft open model with strong reasoning and compact deployment characteristics.", sizes: "14b", tags: ["general", "reasoning"] },
+        { name: "codegemma", pull: "codegemma:7b", summary: "Google coding model for code generation, understanding, and lightweight dev tasks.", sizes: "2b 7b", tags: ["code"] },
+        { name: "codellama", pull: "codellama:7b", summary: "Classic code-oriented model family for generation and code discussion.", sizes: "7b 13b 34b 70b", tags: ["code"] },
+        { name: "llava", pull: "llava:7b", summary: "Vision-language model for image-aware prompting on local hardware.", sizes: "7b 13b 34b", tags: ["vision"] },
+        { name: "llama3.2-vision", pull: "llama3.2-vision:11b", summary: "Meta vision-language model family for multimodal local workflows.", sizes: "11b 90b", tags: ["vision"] },
+        { name: "nomic-embed-text", pull: "nomic-embed-text", summary: "Embedding model for search, retrieval, and semantic indexing workflows.", sizes: "single", tags: ["embedding"] },
+        { name: "mxbai-embed-large", pull: "mxbai-embed-large", summary: "High quality embedding model for local retrieval pipelines.", sizes: "single", tags: ["embedding"] },
+        { name: "tinyllama", pull: "tinyllama", summary: "Very small local model that runs comfortably on limited hardware.", sizes: "1.1b", tags: ["small"] },
+      ];
+
+      const state = {
+        conversations: [],
+        activeId: "",
+        models: [],
+        inFlight: null,
+        waiting: false,
+        installingModel: "",
+      };
+
+      const el = {
+        toast: document.getElementById("toast"),
+        connectionDot: document.getElementById("connectionDot"),
+        connectionText: document.getElementById("connectionText"),
+        statusText: document.getElementById("statusText"),
+        statsText: document.getElementById("statsText"),
+
+        newChatBtn: document.getElementById("newChatBtn"),
+        refreshModelsBtn: document.getElementById("refreshModelsBtn"),
+        importBtn: document.getElementById("importBtn"),
+        discoverModelsBtn: document.getElementById("discoverModelsBtn"),
+        exportAllBtn: document.getElementById("exportAllBtn"),
+
+        searchInput: document.getElementById("searchInput"),
+        sortSelect: document.getElementById("sortSelect"),
+        filterSelect: document.getElementById("filterSelect"),
+        clearSearchBtn: document.getElementById("clearSearchBtn"),
+        historyList: document.getElementById("historyList"),
+
+        titleInput: document.getElementById("titleInput"),
+        duplicateBtn: document.getElementById("duplicateBtn"),
+        renameBtn: document.getElementById("renameBtn"),
+        clearBtn: document.getElementById("clearBtn"),
+        deleteBtn: document.getElementById("deleteBtn"),
+        exportBtn: document.getElementById("exportBtn"),
+        settingsToggleBtn: document.getElementById("settingsToggleBtn"),
+        stopBtn: document.getElementById("stopBtn"),
+        settingsModal: document.getElementById("settingsModal"),
+        settingsBackdrop: document.getElementById("settingsBackdrop"),
+        closeSettingsBtn: document.getElementById("closeSettingsBtn"),
+        closeSettingsSaveBtn: document.getElementById("closeSettingsSaveBtn"),
+        catalogModal: document.getElementById("catalogModal"),
+        catalogBackdrop: document.getElementById("catalogBackdrop"),
+        closeCatalogBtn: document.getElementById("closeCatalogBtn"),
+        catalogSearchInput: document.getElementById("catalogSearchInput"),
+        customModelInput: document.getElementById("customModelInput"),
+        installCustomBtn: document.getElementById("installCustomBtn"),
+        catalogGrid: document.getElementById("catalogGrid"),
+        refreshCatalogBtn: document.getElementById("refreshCatalogBtn"),
+
+        modelSelect: document.getElementById("modelSelect"),
+        temperatureInput: document.getElementById("temperatureInput"),
+        topPInput: document.getElementById("topPInput"),
+        maxTokensInput: document.getElementById("maxTokensInput"),
+        temperatureValue: document.getElementById("temperatureValue"),
+        topPValue: document.getElementById("topPValue"),
+        maxTokensValue: document.getElementById("maxTokensValue"),
+
+        chatScroll: document.getElementById("chatScroll"),
+        emptyHint: document.getElementById("emptyHint"),
+        chatForm: document.getElementById("chatForm"),
+        messageInput: document.getElementById("messageInput"),
+        sendBtn: document.getElementById("sendBtn"),
+        helperText: document.getElementById("helperText"),
+      };
+
+      function uid() {
+        return crypto.randomUUID ? crypto.randomUUID() : "id-" + Date.now() + Math.random().toString(16).slice(2);
+      }
+
+      function safeText(value, fallback) {
+        if (typeof value === "string" && value.trim()) {
+          return value.trim();
+        }
+        return fallback;
+      }
+
+      function parseJSON(raw, fallback) {
+        try {
+          return JSON.parse(raw);
+        } catch {
+          return fallback;
+        }
+      }
+
+      function formatDateTime(value) {
+        return new Date(value).toLocaleString([], {
+          month: "short",
+          day: "2-digit",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+
+      function formatTime(value) {
+        return new Date(value).toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+      }
+
+      function words(value) {
+        const t = safeText(value, "");
+        return t ? t.trim().split(/\s+/).length : 0;
+      }
+
+      function toast(message) {
+        el.toast.textContent = message;
+        el.toast.classList.add("show");
+        window.clearTimeout(window.__toastTimer);
+        window.__toastTimer = window.setTimeout(() => {
+          el.toast.classList.remove("show");
+        }, 2200);
+      }
+
+      function setStatusText(label, ok, info) {
+        el.statusText.textContent = label;
+        el.connectionText.textContent = label;
+        if (typeof ok === "boolean") {
+          el.connectionDot.style.background = ok ? "#22c55e" : "#f97316";
+        }
+        if (info) {
+          el.statsText.textContent = info;
+        }
+      }
+
+      function getActive() {
+        return state.conversations.find((c) => c.id === state.activeId) || null;
+      }
+
+      function normalizeConversation(item) {
+        return {
+          id: safeText(item?.id, uid()),
+          title: safeText(item?.title, "New chat").slice(0, 90),
+          model: safeText(item?.model, state.models[0]?.name || ""),
+          temperature: Number(item?.temperature) || DEFAULT_TEMP,
+          topP: Number(item?.topP) || DEFAULT_TOP_P,
+          maxTokens: Number(item?.maxTokens) || DEFAULT_MAX_TOKENS,
+          pinned: !!item?.pinned,
+          createdAt: Number.isFinite(item?.createdAt) ? item.createdAt : Date.now(),
+          updatedAt: Number.isFinite(item?.updatedAt) ? item.updatedAt : Date.now(),
+          messages: Array.isArray(item?.messages) ? item.messages : [],
+        };
+      }
+
+      function createConversation(seed) {
+        return {
+          id: uid(),
+          title: safeText(seed, "New chat"),
+          model: state.models[0]?.name || "",
+          temperature: DEFAULT_TEMP,
+          topP: DEFAULT_TOP_P,
+          maxTokens: DEFAULT_MAX_TOKENS,
+          pinned: false,
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+          messages: [],
+        };
+      }
+
+      function loadState() {
+        const parsed = parseJSON(localStorage.getItem(STORAGE_KEY), null);
+        const list = Array.isArray(parsed) ? parsed : [];
+        state.conversations = list.map(normalizeConversation);
+
+        if (!state.conversations.length) {
+          state.conversations = [createConversation("New chat")];
+        }
+        state.activeId = state.conversations[0].id;
+      }
+
+      function saveState() {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state.conversations));
+      }
+
+      function setActiveConversation(id) {
+        state.activeId = id;
+        syncActive();
+      }
+
+      function syncInputs(conversation) {
+        el.titleInput.value = conversation.title;
+        el.modelSelect.value = conversation.model;
+        el.temperatureInput.value = String(conversation.temperature);
+        el.topPInput.value = String(conversation.topP);
+        el.maxTokensInput.value = String(conversation.maxTokens);
+        el.temperatureValue.textContent = Number(conversation.temperature).toFixed(2);
+        el.topPValue.textContent = Number(conversation.topP).toFixed(2);
+        el.maxTokensValue.textContent = String(conversation.maxTokens);
+      }
+
+      function renderStats() {
+        const active = getActive();
+        if (!active) {
+          el.statsText.textContent = "No conversation";
+          return;
+        }
+        const totalWords = active.messages.reduce((acc, m) => acc + words(m.content || ""), 0);
+        el.statsText.textContent = active.messages.length + " msgs · " + totalWords + " words · model: " + (active.model || "none");
+      }
+
+      function isInstalledModel(name) {
+        return state.models.some((model) => model.name === name);
+      }
+
+      function renderModelCatalog() {
+        if (!el.catalogGrid) return;
+        const q = safeText(el.catalogSearchInput.value, "").toLowerCase();
+        const installed = new Set(state.models.map((item) => item.name));
+        const list = MODEL_LIBRARY.filter((item) => {
+          if (!q) return true;
+          const haystack = [item.name, item.pull, item.summary, item.sizes, item.tags.join(" ")].join(" ").toLowerCase();
+          return haystack.includes(q);
+        });
+
+        el.catalogGrid.innerHTML = "";
+        if (!list.length) {
+          const empty = document.createElement("div");
+          empty.className = "catalog-empty";
+          empty.textContent = "No models match that search.";
+          el.catalogGrid.appendChild(empty);
+          return;
+        }
+
+        for (const item of list) {
+          const card = document.createElement("div");
+          card.className = "model-card";
+
+          const title = document.createElement("h3");
+          title.textContent = item.name;
+
+          const summary = document.createElement("p");
+          summary.textContent = item.summary;
+
+          const pullName = document.createElement("div");
+          pullName.className = "model-pull";
+          pullName.textContent = item.pull;
+
+          const meta = document.createElement("div");
+          meta.className = "model-meta";
+
+          const sizes = document.createElement("span");
+          sizes.className = "pill";
+          sizes.textContent = item.sizes;
+          meta.appendChild(sizes);
+
+          if (installed.has(item.pull)) {
+            const installedBadge = document.createElement("span");
+            installedBadge.className = "pill success";
+            installedBadge.textContent = "Installed";
+            meta.appendChild(installedBadge);
+          }
+
+          const tags = document.createElement("div");
+          tags.className = "model-tags";
+          for (const tag of item.tags) {
+            const pill = document.createElement("span");
+            pill.className = "pill";
+            pill.textContent = tag;
+            tags.appendChild(pill);
+          }
+
+          const actions = document.createElement("div");
+          actions.className = "model-actions";
+
+          const installBtn = document.createElement("button");
+          installBtn.type = "button";
+          installBtn.className = "btn btn-primary";
+          installBtn.textContent = state.installingModel === item.pull ? "Installing..." : "Install";
+          installBtn.disabled = !!state.installingModel;
+          installBtn.addEventListener("click", () => installModel(item.pull, installBtn));
+
+          const useBtn = document.createElement("button");
+          useBtn.type = "button";
+          useBtn.className = "btn btn-ghost";
+          useBtn.textContent = "Copy name";
+          useBtn.disabled = !!state.installingModel;
+          useBtn.addEventListener("click", async () => {
+            await navigator.clipboard.writeText(item.pull);
+            toast("Model name copied");
+          });
+
+          actions.appendChild(installBtn);
+          actions.appendChild(useBtn);
+
+          card.appendChild(title);
+          card.appendChild(summary);
+          card.appendChild(pullName);
+          card.appendChild(meta);
+          card.appendChild(tags);
+          card.appendChild(actions);
+          el.catalogGrid.appendChild(card);
+        }
+      }
+
+      function appendInlineFormatted(target, text) {
+        const pattern = /(`[^`\n]+`|\$\$[^$]+\$\$|\$[^$\n]+\$|\*\*[^*]+\*\*|\*[^*\n]+\*)/g;
+        let lastIndex = 0;
+
+        for (const match of text.matchAll(pattern)) {
+          const token = match[0];
+          const start = match.index || 0;
+          if (start > lastIndex) {
+            target.appendChild(document.createTextNode(text.slice(lastIndex, start)));
+          }
+
+          let node;
+          if (token.startsWith("`")) {
+            node = document.createElement("code");
+            node.className = "inline-code";
+            node.textContent = token.slice(1, -1);
+          } else if (token.startsWith("$$") || token.startsWith("$")) {
+            node = document.createElement("span");
+            node.className = "math-inline";
+            node.textContent = token.startsWith("$$") ? token.slice(2, -2) : token.slice(1, -1);
+          } else if (token.startsWith("**")) {
+            node = document.createElement("strong");
+            node.textContent = token.slice(2, -2);
+          } else {
+            node = document.createElement("em");
+            node.textContent = token.slice(1, -1);
+          }
+
+          target.appendChild(node);
+          lastIndex = start + token.length;
+        }
+
+        if (lastIndex < text.length) {
+          target.appendChild(document.createTextNode(text.slice(lastIndex)));
+        }
+      }
+
+      function renderCodeBlock(language, code) {
+        const wrap = document.createElement("div");
+        wrap.className = "code-block";
+
+        const head = document.createElement("div");
+        head.className = "code-head";
+
+        const label = document.createElement("div");
+        label.className = "code-lang";
+        label.textContent = safeText(language, "text");
+
+        const copy = document.createElement("button");
+        copy.type = "button";
+        copy.className = "copy-code-btn";
+        copy.textContent = "Copy code";
+        copy.addEventListener("click", async () => {
+          await navigator.clipboard.writeText(code);
+          toast("Code copied");
+        });
+
+        const pre = document.createElement("pre");
+        const codeNode = document.createElement("code");
+        codeNode.textContent = code.replace(/\n$/, "");
+        pre.appendChild(codeNode);
+
+        head.appendChild(label);
+        head.appendChild(copy);
+        wrap.appendChild(head);
+        wrap.appendChild(pre);
+        return wrap;
+      }
+
+      function flushParagraph(target, lines) {
+        if (!lines.length) return;
+        const joined = lines.join(" ");
+        const trimmed = joined.trim();
+        if (!trimmed) return;
+
+        if (/^\$\$[\s\S]*\$\$$/.test(trimmed)) {
+          const math = document.createElement("div");
+          math.className = "math-block";
+          math.textContent = trimmed.slice(2, -2).trim();
+          target.appendChild(math);
+          return;
+        }
+
+        const blockquoteMatch = trimmed.match(/^>\s?(.*)$/);
+        if (blockquoteMatch) {
+          const quote = document.createElement("blockquote");
+          appendInlineFormatted(quote, blockquoteMatch[1]);
+          target.appendChild(quote);
+          return;
+        }
+
+        const headingMatch = trimmed.match(/^(#{1,4})\s+(.*)$/);
+        if (headingMatch) {
+          const heading = document.createElement("h" + headingMatch[1].length);
+          appendInlineFormatted(heading, headingMatch[2]);
+          target.appendChild(heading);
+          return;
+        }
+
+        const paragraph = document.createElement("p");
+        appendInlineFormatted(paragraph, joined);
+        target.appendChild(paragraph);
+      }
+
+      function renderMarkdownBlock(text) {
+        const fragment = document.createDocumentFragment();
+        const lines = text.replace(/\r/g, "").split("\n");
+        let paragraph = [];
+        let listNode = null;
+        let listType = "";
+
+        function flushList() {
+          if (!listNode) return;
+          fragment.appendChild(listNode);
+          listNode = null;
+          listType = "";
+        }
+
+        for (const rawLine of lines) {
+          const line = rawLine.trimEnd();
+          const trimmed = line.trim();
+
+          if (!trimmed) {
+            flushParagraph(fragment, paragraph);
+            paragraph = [];
+            flushList();
+            continue;
+          }
+
+          const unordered = trimmed.match(/^[-*+]\s+(.*)$/);
+          const ordered = trimmed.match(/^\d+\.\s+(.*)$/);
+          if (unordered || ordered) {
+            flushParagraph(fragment, paragraph);
+            paragraph = [];
+
+            const nextType = unordered ? "ul" : "ol";
+            if (!listNode || listType !== nextType) {
+              flushList();
+              listNode = document.createElement(nextType);
+              listType = nextType;
+            }
+
+            const li = document.createElement("li");
+            appendInlineFormatted(li, unordered ? unordered[1] : ordered[1]);
+            listNode.appendChild(li);
+            continue;
+          }
+
+          flushList();
+          paragraph.push(trimmed);
+        }
+
+        flushParagraph(fragment, paragraph);
+        flushList();
+        return fragment;
+      }
+
+      function renderRichMessage(text) {
+        const container = document.createElement("div");
+        container.className = "message";
+
+        const source = typeof text === "string" ? text : "";
+        const pattern = /```([a-zA-Z0-9_+#.-]*)?\n([\s\S]*?)```/g;
+        let lastIndex = 0;
+
+        for (const match of source.matchAll(pattern)) {
+          const index = match.index || 0;
+          if (index > lastIndex) {
+            container.appendChild(renderMarkdownBlock(source.slice(lastIndex, index)));
+          }
+
+          container.appendChild(renderCodeBlock(match[1], match[2]));
+          lastIndex = index + match[0].length;
+        }
+
+        if (lastIndex < source.length || !source) {
+          container.appendChild(renderMarkdownBlock(source.slice(lastIndex)));
+        }
+
+        return container;
+      }
+
+      function renderMessages() {
+        const active = getActive();
+        el.chatScroll.innerHTML = "";
+
+        if (!active || !active.messages.length) {
+          el.chatScroll.appendChild(el.emptyHint);
+          return;
+        }
+
+        for (const msg of active.messages) {
+          const row = document.createElement("div");
+          const role = msg.role === "user" ? "user" : "assistant";
+          row.className = "bubble " + role;
+
+          const body = renderRichMessage(msg.content);
+
+          const meta = document.createElement("div");
+          meta.className = "meta";
+          meta.textContent = (msg.role === "user" ? "You" : "Assistant") + " · " + formatTime(msg.ts || Date.now());
+
+          const actions = document.createElement("div");
+          actions.className = "message-actions";
+
+          const copy = document.createElement("button");
+          copy.type = "button";
+          copy.className = "icon-btn";
+          copy.textContent = "Copy";
+          copy.addEventListener("click", async () => {
+            await navigator.clipboard.writeText(msg.content || "");
+            toast("Copied");
+          });
+
+          actions.appendChild(copy);
+          row.appendChild(body);
+          row.appendChild(meta);
+          row.appendChild(actions);
+          el.chatScroll.appendChild(row);
+        }
+
+        el.chatScroll.scrollTop = el.chatScroll.scrollHeight;
+      }
+
+      function renderHistory() {
+        const active = getActive();
+        const q = safeText(el.searchInput.value, "").toLowerCase();
+        const sort = el.sortSelect.value;
+        const filter = el.filterSelect.value;
+
+        let list = state.conversations.slice();
+        if (filter === "pinned") {
+          list = list.filter((item) => item.pinned);
+        }
+
+        if (q) {
+          list = list.filter((item) => {
+            const haystack = [item.title, item.model, ...item.messages.map((m) => m.content || "")].join(" ").toLowerCase();
+            return haystack.includes(q);
+          });
+        }
+
+        list.sort((a, b) => {
+          if (sort === "name") {
+            return a.title.localeCompare(b.title);
+          }
+          if (a.pinned === b.pinned) {
+            return b.updatedAt - a.updatedAt;
+          }
+          return a.pinned ? -1 : 1;
+        });
+
+        el.historyList.innerHTML = "";
+
+        if (!list.length) {
+          const empty = document.createElement("div");
+          empty.className = "empty";
+          empty.textContent = "No conversations.";
+          el.historyList.appendChild(empty);
+          return;
+        }
+
+        for (const item of list) {
+          const row = document.createElement("div");
+          row.className = "history-item";
+          if (active && item.id === active.id) {
+            row.classList.add("active");
+          }
+
+          const h3 = document.createElement("h3");
+          h3.textContent = item.title;
+
+          const actions = document.createElement("div");
+          actions.className = "actions";
+
+          const pin = document.createElement("button");
+          pin.type = "button";
+          pin.className = "icon-btn";
+          pin.textContent = item.pinned ? "Unpin" : "Pin";
+          pin.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            item.pinned = !item.pinned;
+            item.updatedAt = Date.now();
+            saveState();
+            renderHistory();
+          });
+
+          const dup = document.createElement("button");
+          dup.type = "button";
+          dup.className = "icon-btn";
+          dup.textContent = "Duplicate";
+          dup.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            duplicateConversation(item.id);
+          });
+
+          const del = document.createElement("button");
+          del.type = "button";
+          del.className = "icon-btn";
+          del.textContent = "Delete";
+          del.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            if (!window.confirm("Delete conversation '" + item.title + "'?")) {
+              return;
+            }
+            state.conversations = state.conversations.filter((it) => it.id !== item.id);
+            if (state.activeId === item.id) {
+              state.activeId = state.conversations[0]?.id || "";
+            }
+            if (!state.conversations.length) {
+              state.conversations = [createConversation("New chat")];
+            }
+            syncActive();
+            toast("Conversation deleted");
+          });
+
+          actions.appendChild(pin);
+          actions.appendChild(dup);
+          actions.appendChild(del);
+
+          row.appendChild(h3);
+          row.appendChild(actions);
+          row.addEventListener("click", () => setActiveConversation(item.id));
+          el.historyList.appendChild(row);
+        }
+      }
+
+      function openSettings() {
+        document.body.classList.add("modal-open");
+        el.settingsModal.classList.add("open");
+        el.settingsModal.setAttribute("aria-hidden", "false");
+      }
+
+      function closeSettings() {
+        el.settingsModal.classList.remove("open");
+        el.settingsModal.setAttribute("aria-hidden", "true");
+        if (!el.catalogModal.classList.contains("open")) {
+          document.body.classList.remove("modal-open");
+        }
+      }
+
+      function openCatalog() {
+        renderModelCatalog();
+        document.body.classList.add("modal-open");
+        el.catalogModal.classList.add("open");
+        el.catalogModal.setAttribute("aria-hidden", "false");
+      }
+
+      function closeCatalog() {
+        el.catalogModal.classList.remove("open");
+        el.catalogModal.setAttribute("aria-hidden", "true");
+        if (!el.settingsModal.classList.contains("open")) {
+          document.body.classList.remove("modal-open");
+        }
+      }
+
+      async function installModel(modelName, triggerButton) {
+        const model = safeText(modelName, "");
+        if (!model || state.installingModel) return;
+
+        state.installingModel = model;
+        renderModelCatalog();
+        if (triggerButton) {
+          triggerButton.disabled = true;
+          triggerButton.textContent = "Installing...";
+        }
+        el.installCustomBtn.disabled = true;
+
+        try {
+          const response = await fetch("/api/install", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ model }),
+          });
+          const payload = await response.json();
+          if (!response.ok) {
+            throw new Error(payload.error || ("HTTP " + response.status));
+          }
+
+          toast("Installed " + model);
+          await refreshModels();
+          renderModelCatalog();
+        } catch (error) {
+          toast("Install failed: " + (error.message || "error"));
+        } finally {
+          state.installingModel = "";
+          el.installCustomBtn.disabled = false;
+          renderModelCatalog();
+        }
+      }
+
+      function syncActive() {
+        const active = getActive();
+        if (!active) {
+          state.activeId = state.conversations[0].id;
+          syncActive();
+          return;
+        }
+
+        syncInputs(active);
+        renderMessages();
+        renderHistory();
+        renderStats();
+        saveState();
+      }
+
+      function newConversation() {
+        const conversation = createConversation("New chat " + (state.conversations.length + 1));
+        state.conversations.unshift(conversation);
+        state.activeId = conversation.id;
+        syncActive();
+      }
+
+      function duplicateConversation(id) {
+        const source = state.conversations.find((item) => item.id === id);
+        if (!source) {
+          return;
+        }
+        const copy = JSON.parse(JSON.stringify(source));
+        const newConversation = normalizeConversation(copy);
+        newConversation.id = uid();
+        newConversation.title = newConversation.title + " copy";
+        newConversation.createdAt = Date.now();
+        newConversation.updatedAt = Date.now();
+        state.conversations.unshift(newConversation);
+        state.activeId = newConversation.id;
+        syncActive();
+        toast("Conversation duplicated");
+      }
+
+      function clearMessages() {
+        const active = getActive();
+        if (!active || !window.confirm("Clear messages?")) {
+          return;
+        }
+        active.messages = [];
+        active.updatedAt = Date.now();
+        saveState();
+        syncActive();
+      }
+
+      function deleteConversation() {
+        const active = getActive();
+        if (!active) return;
+        if (!window.confirm("Delete conversation '" + active.title + "'?")) {
+          return;
+        }
+        state.conversations = state.conversations.filter((item) => item.id !== active.id);
+        if (!state.conversations.length) {
+          state.conversations = [createConversation("New chat")];
+        }
+        state.activeId = state.conversations[0].id;
+        syncActive();
+      }
+
+      function autoNameFirstPrompt(promptText) {
+        const active = getActive();
+        if (!active || !active.title.startsWith("New chat")) return;
+        const name = safeText(promptText, "New chat").slice(0, 64);
+        if (!name) return;
+        active.title = name;
+      }
+
+      function renderModelOptions(models) {
+        state.models = Array.isArray(models) ? models : [];
+        el.modelSelect.innerHTML = "";
+
+        if (!state.models.length) {
+          const opt = document.createElement("option");
+          opt.value = "";
+          opt.textContent = "No models";
+          el.modelSelect.appendChild(opt);
+          setStatusText("No models found", false);
+          renderModelCatalog();
+          return;
+        }
+
+        for (const model of state.models) {
+          const opt = document.createElement("option");
+          opt.value = model.name;
+          opt.textContent = model.name;
+          el.modelSelect.appendChild(opt);
+        }
+
+        const active = getActive();
+        if (active && state.models.some((it) => it.name === active.model)) {
+          el.modelSelect.value = active.model;
+        } else if (state.models[0]) {
+          el.modelSelect.value = state.models[0].name;
+          if (active) {
+            active.model = state.models[0].name;
+            active.updatedAt = Date.now();
+            saveState();
+          }
+        }
+        renderModelCatalog();
+      }
+
+      function updateStatusConnected(ok, text) {
+        const modelCount = state.models.length;
+        setStatusText(text, ok, modelCount + " models loaded");
+      }
+
+      async function refreshModels() {
+        el.refreshModelsBtn.disabled = true;
+        updateStatusConnected(false, "Loading models");
+        try {
+          const response = await fetch("/api/models", {
+            method: "GET",
+            cache: "no-store",
+          });
+          const payload = await response.json();
+          if (!response.ok) {
+            throw new Error(payload.error || ("HTTP " + response.status));
+          }
+          renderModelOptions(payload.models || []);
+          updateStatusConnected(true, "Connected");
+        } catch (error) {
+          setStatusText("Cannot load models", false, "0 models");
+          toast("Model refresh failed: " + (error.message || "error"));
+          renderModelOptions([]);
+        } finally {
+          el.refreshModelsBtn.disabled = false;
+        }
+      }
+
+      async function sendMessage() {
+        const active = getActive();
+        if (!active || state.waiting) return;
+
+        const messageText = safeText(el.messageInput.value, "");
+        if (!messageText) return;
+        if (!el.modelSelect.value) {
+          toast("Pick a model first");
+          return;
+        }
+
+        active.model = el.modelSelect.value;
+        active.temperature = Number(el.temperatureInput.value);
+        active.topP = Number(el.topPInput.value);
+        active.maxTokens = Number(el.maxTokensInput.value);
+        active.updatedAt = Date.now();
+        autoNameFirstPrompt(messageText);
+
+        active.messages.push({
+          role: "user",
+          content: messageText,
+          ts: Date.now(),
+        });
+
+        el.messageInput.value = "";
+        el.helperText.textContent = "0 words";
+        renderMessages();
+        renderHistory();
+        renderStats();
+        saveState();
+
+        const waitingNode = document.createElement("div");
+        waitingNode.className = "bubble assistant";
+        waitingNode.textContent = "Thinking…";
+        el.chatScroll.appendChild(waitingNode);
+        el.chatScroll.scrollTop = el.chatScroll.scrollHeight;
+
+        state.waiting = true;
+        el.sendBtn.disabled = true;
+        el.stopBtn.disabled = false;
+        state.inFlight = new AbortController();
+
+        try {
+          const response = await fetch("/api/chat", {
+            method: "POST",
+            signal: state.inFlight.signal,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              model: active.model,
+              messages: active.messages,
+              temperature: active.temperature,
+              options: {
+                top_p: active.topP,
+                num_predict: active.maxTokens,
+              },
+              stream: false,
+            }),
+          });
+
+          const data = await response.json();
+          waitingNode.remove();
+          if (!response.ok || data.error) {
+            throw new Error(data.error || ("HTTP " + response.status));
+          }
+
+          active.messages.push({
+            role: "assistant",
+            content: safeText(data.content, ""),
+            ts: Date.now(),
+          });
+          active.updatedAt = Date.now();
+          saveState();
+          renderMessages();
+          renderHistory();
+          renderStats();
+          setStatusText("Response received", true);
+        } catch (error) {
+          waitingNode.textContent = "Failed to generate";
+          waitingNode.className = "bubble assistant error";
+          const errMeta = document.createElement("div");
+          errMeta.className = "meta";
+          errMeta.textContent = error.name === "AbortError" ? "Request cancelled" : (error.message || "request failed");
+          waitingNode.appendChild(errMeta);
+          el.chatScroll.appendChild(waitingNode);
+          setStatusText("Request failed", false);
+        } finally {
+          state.waiting = false;
+          state.inFlight = null;
+          el.sendBtn.disabled = false;
+          el.stopBtn.disabled = true;
+          renderMessages();
+        }
+      }
+
+      function stopConversation() {
+        if (!state.inFlight) return;
+        state.inFlight.abort();
+        toast("Request cancelled");
+      }
+
+      function exportCurrentConversation() {
+        const active = getActive();
+        if (!active) return;
+        const payload = {
+          exportedAt: new Date().toISOString(),
+          conversations: [active],
+        };
+        const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = active.title + ".json";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      function exportAllConversations() {
+        const payload = {
+          exportedAt: new Date().toISOString(),
+          conversations: state.conversations,
+        };
+        const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" }));
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "ollama-all-chats.json";
+        a.click();
+        URL.revokeObjectURL(url);
+      }
+
+      function importConversations() {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "application/json";
+        input.addEventListener("change", async () => {
+          const file = input.files && input.files[0];
+          if (!file) return;
+          const payload = parseJSON(await file.text(), null);
+          const raw = Array.isArray(payload) ? payload : payload?.conversations;
+          if (!Array.isArray(raw)) {
+            toast("Invalid import format");
+            return;
+          }
+          const imported = raw.map(normalizeConversation);
+          state.conversations = imported.concat(state.conversations);
+          state.activeId = imported[0].id;
+          saveState();
+          syncActive();
+          toast("Imported " + imported.length + " conversations");
+        });
+        input.click();
+      }
+
+      function bindEvents() {
+        el.newChatBtn.addEventListener("click", newConversation);
+        el.duplicateBtn.addEventListener("click", () => duplicateConversation(state.activeId));
+        el.renameBtn.addEventListener("click", () => {
+          const active = getActive();
+          if (!active) return;
+          const value = safeText(prompt("Rename conversation", active.title), "");
+          if (!value) return;
+          active.title = value.slice(0, 90);
+          active.updatedAt = Date.now();
+          syncActive();
+        });
+
+        el.clearBtn.addEventListener("click", clearMessages);
+        el.deleteBtn.addEventListener("click", deleteConversation);
+        el.exportBtn.addEventListener("click", exportCurrentConversation);
+        el.exportAllBtn.addEventListener("click", exportAllConversations);
+        el.importBtn.addEventListener("click", importConversations);
+        el.refreshModelsBtn.addEventListener("click", refreshModels);
+        el.discoverModelsBtn.addEventListener("click", openCatalog);
+        el.stopBtn.addEventListener("click", stopConversation);
+        el.settingsToggleBtn.addEventListener("click", openSettings);
+        el.closeSettingsBtn.addEventListener("click", closeSettings);
+        el.closeSettingsSaveBtn.addEventListener("click", closeSettings);
+        el.settingsBackdrop.addEventListener("click", closeSettings);
+        el.closeCatalogBtn.addEventListener("click", closeCatalog);
+        el.catalogBackdrop.addEventListener("click", closeCatalog);
+        el.catalogSearchInput.addEventListener("input", renderModelCatalog);
+        el.refreshCatalogBtn.addEventListener("click", async () => {
+          await refreshModels();
+          renderModelCatalog();
+        });
+        el.installCustomBtn.addEventListener("click", () => installModel(el.customModelInput.value));
+        el.customModelInput.addEventListener("keydown", (event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            installModel(el.customModelInput.value);
+          }
+        });
+
+        document.addEventListener("keydown", (event) => {
+          if (event.key === "Escape" && el.catalogModal.classList.contains("open")) {
+            closeCatalog();
+          } else if (event.key === "Escape" && el.settingsModal.classList.contains("open")) {
+            closeSettings();
+          }
+        });
+
+        el.searchInput.addEventListener("input", renderHistory);
+        el.sortSelect.addEventListener("change", renderHistory);
+        el.filterSelect.addEventListener("change", renderHistory);
+        el.clearSearchBtn.addEventListener("click", () => {
+          el.searchInput.value = "";
+          renderHistory();
+        });
+
+        el.titleInput.addEventListener("change", () => {
+          const active = getActive();
+          if (!active) return;
+          active.title = safeText(el.titleInput.value, active.title).slice(0, 90);
+          saveState();
+          renderHistory();
+        });
+
+        el.modelSelect.addEventListener("change", () => {
+          const active = getActive();
+          if (!active) return;
+          active.model = el.modelSelect.value;
+          active.updatedAt = Date.now();
+          saveState();
+          renderStats();
+        });
+
+        el.temperatureInput.addEventListener("input", () => {
+          const active = getActive();
+          el.temperatureValue.textContent = Number(el.temperatureInput.value).toFixed(2);
+          if (!active) return;
+          active.temperature = Number(el.temperatureInput.value);
+          active.updatedAt = Date.now();
+          saveState();
+          renderStats();
+        });
+
+        el.topPInput.addEventListener("input", () => {
+          const active = getActive();
+          el.topPValue.textContent = Number(el.topPInput.value).toFixed(2);
+          if (!active) return;
+          active.topP = Number(el.topPInput.value);
+          active.updatedAt = Date.now();
+          saveState();
+          renderStats();
+        });
+
+        el.maxTokensInput.addEventListener("input", () => {
+          const active = getActive();
+          el.maxTokensValue.textContent = el.maxTokensInput.value;
+          if (!active) return;
+          active.maxTokens = Number(el.maxTokensInput.value);
+          active.updatedAt = Date.now();
+          saveState();
+          renderStats();
+        });
+
+        el.chatForm.addEventListener("submit", (event) => {
+          event.preventDefault();
+          sendMessage();
+        });
+
+        el.messageInput.addEventListener("input", () => {
+          el.helperText.textContent = words(el.messageInput.value) + " words";
+          el.messageInput.style.height = "0px";
+          el.messageInput.style.height = Math.min(220, Math.max(84, el.messageInput.scrollHeight)) + "px";
+        });
+
+        el.messageInput.addEventListener("keydown", (event) => {
+          if (event.key === "Enter" && !event.shiftKey) {
+            event.preventDefault();
+            sendMessage();
+          }
+        });
+      }
+
+      function init() {
+        loadState();
+        bindEvents();
+        renderModelCatalog();
+        syncActive();
+        refreshModels();
+      }
+
+      init();
+    </script>
+  </body>
+</html>
