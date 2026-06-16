@@ -52,7 +52,7 @@ If you already have the files, you can skip this step.
 If you want to clone it from GitHub:
 
 ```bash
-git clone <your-repo-url>
+git clone https://github.com/eftrahman/Ollama-Studio-Local.git
 cd ollama-web-ui
 ```
 
