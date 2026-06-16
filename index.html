@@ -347,10 +347,18 @@
 
       .composer {
         display: grid;
-        grid-template-columns: 1fr auto;
-        gap: 6px;
+        grid-template-columns: minmax(0, 1fr) auto;
+        gap: 10px;
         align-items: end;
-        padding: 10px;
+        padding: 12px;
+        position: sticky;
+        bottom: 0;
+        z-index: 3;
+        background:
+          linear-gradient(180deg, rgba(7, 11, 22, 0.2), rgba(7, 11, 22, 0.92) 20%, rgba(7, 11, 22, 0.98)),
+          rgba(7, 11, 22, 0.96);
+        backdrop-filter: blur(14px);
+        border-top: 1px solid rgba(148, 163, 184, 0.12);
       }
 
       .textarea {
@@ -359,10 +367,78 @@
         max-height: 220px;
       }
 
+      .composer-main {
+        display: grid;
+        gap: 8px;
+      }
+
+      .composer-frame {
+        border: 1px solid rgba(148, 163, 184, 0.16);
+        border-radius: 16px;
+        background: rgba(4, 8, 18, 0.84);
+        padding: 10px;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+      }
+
+      .composer-frame .textarea {
+        border: 0;
+        background: transparent;
+        padding: 0;
+        min-height: 92px;
+      }
+
+      .composer-frame .textarea:focus {
+        outline: none;
+      }
+
       .helper {
         color: var(--muted);
         font-size: 0.73rem;
-        margin-top: 5px;
+        margin-top: 0;
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: center;
+      }
+
+      .helper-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 8px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(148, 163, 184, 0.12);
+        color: #cfe2ff;
+        font-size: 0.72rem;
+      }
+
+      .composer-actions {
+        display: grid;
+        gap: 8px;
+        align-self: stretch;
+      }
+
+      .composer-actions .btn {
+        width: 56px;
+        min-height: 56px;
+        padding: 0;
+        border-radius: 16px;
+      }
+
+      .icon-action {
+        background: rgba(15, 23, 42, 0.96);
+        border: 1px solid rgba(148, 163, 184, 0.14);
+      }
+
+      .icon-action svg {
+        width: 18px;
+        height: 18px;
+      }
+
+      .send-action {
+        font-size: 0.8rem;
+        font-weight: 700;
       }
 
       .message {
@@ -535,10 +611,10 @@
       }
 
       .settings-btn {
-        width: auto;
-        padding-left: 10px;
-        padding-right: 10px;
-        gap: 6px;
+        width: 56px;
+        min-height: 56px;
+        padding: 0;
+        gap: 0;
       }
 
       #clearSearchBtn {
@@ -873,6 +949,11 @@
         .user,
         .bubble { max-width: 100%; width: auto; }
         .catalog-toolbar { grid-template-columns: 1fr; }
+        .composer { grid-template-columns: 1fr; }
+        .composer-actions {
+          grid-template-columns: repeat(2, 56px);
+          justify-content: flex-end;
+        }
       }
     </style>
   </head>
@@ -925,7 +1006,6 @@
               <button class="btn btn-ghost" id="renameBtn" type="button">Rename</button>
               <button class="btn btn-ghost" id="clearBtn" type="button">Clear</button>
               <button class="btn btn-ghost" id="deleteBtn" type="button">Delete</button>
-              <button class="btn btn-ghost settings-btn" id="settingsToggleBtn" type="button">Settings</button>
             </div>
           </div>
 
@@ -939,11 +1019,24 @@
             <div id="emptyHint" class="empty">Ask anything to begin.</div>
           </div>
           <form id="chatForm" class="composer">
-            <div>
-              <textarea id="messageInput" class="textarea" placeholder="Type your message"></textarea>
-              <div class="helper" id="helperText">Enter = send, Shift + Enter = new line</div>
+            <div class="composer-main">
+              <div class="composer-frame">
+                <textarea id="messageInput" class="textarea" placeholder="Type your message"></textarea>
+              </div>
+              <div class="helper">
+                <span id="helperText">Enter = send, Shift + Enter = new line</span>
+                <span class="helper-badge">Chat tools always available</span>
+              </div>
             </div>
-            <button class="btn btn-primary" type="submit" id="sendBtn">Send</button>
+            <div class="composer-actions">
+              <button class="btn icon-action settings-btn" id="settingsToggleBtn" type="button" aria-label="Chat settings" title="Chat settings">
+                <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M12 8.75a3.25 3.25 0 1 0 0 6.5a3.25 3.25 0 0 0 0-6.5Z" stroke="currentColor" stroke-width="1.6"/>
+                  <path d="M19.4 15.1a1 1 0 0 0 .2 1.1l.04.04a1.2 1.2 0 0 1 0 1.7l-1.59 1.59a1.2 1.2 0 0 1-1.7 0l-.04-.04a1 1 0 0 0-1.1-.2a1 1 0 0 0-.6.91V20.5a1.2 1.2 0 0 1-1.2 1.2h-2.25a1.2 1.2 0 0 1-1.2-1.2v-.06a1 1 0 0 0-.6-.91a1 1 0 0 0-1.1.2l-.04.04a1.2 1.2 0 0 1-1.7 0L4.36 18a1.2 1.2 0 0 1 0-1.7l.04-.04a1 1 0 0 0 .2-1.1a1 1 0 0 0-.91-.6H3.5a1.2 1.2 0 0 1-1.2-1.2v-2.25a1.2 1.2 0 0 1 1.2-1.2h.06a1 1 0 0 0 .91-.6a1 1 0 0 0-.2-1.1l-.04-.04a1.2 1.2 0 0 1 0-1.7L5.82 3.9a1.2 1.2 0 0 1 1.7 0l.04.04a1 1 0 0 0 1.1.2a1 1 0 0 0 .6-.91V3.5a1.2 1.2 0 0 1 1.2-1.2h2.25a1.2 1.2 0 0 1 1.2 1.2v.06a1 1 0 0 0 .6.91a1 1 0 0 0 1.1-.2l.04-.04a1.2 1.2 0 0 1 1.7 0l1.59 1.59a1.2 1.2 0 0 1 0 1.7l-.04.04a1 1 0 0 0-.2 1.1a1 1 0 0 0 .91.6h.06a1.2 1.2 0 0 1 1.2 1.2v2.25a1.2 1.2 0 0 1-1.2 1.2h-.06a1 1 0 0 0-.91.6Z" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round"/>
+                </svg>
+              </button>
+              <button class="btn btn-primary send-action" type="submit" id="sendBtn">Send</button>
+            </div>
           </form>
         </div>
 
@@ -1726,6 +1819,9 @@
           const row = document.createElement("div");
           const role = msg.role === "user" ? "user" : "assistant";
           row.className = "bubble " + role;
+          if (msg.error) {
+            row.classList.add("error");
+          }
 
           const body = renderRichMessage(msg.content);
 
@@ -2371,14 +2467,22 @@
           renderStats();
           setStatusText("Response received", true);
         } catch (error) {
-          waitingNode.textContent = "Failed to generate";
-          waitingNode.className = "bubble assistant error";
-          const errMeta = document.createElement("div");
-          errMeta.className = "meta";
-          errMeta.textContent = error.name === "AbortError" ? "Request cancelled" : (error.message || "request failed");
-          waitingNode.appendChild(errMeta);
-          el.chatScroll.appendChild(waitingNode);
-          setStatusText("Request failed", false);
+          waitingNode.remove();
+          const errorText = error.name === "AbortError" ? "Request cancelled" : (error.message || "request failed");
+          if (error.name !== "AbortError") {
+            active.messages.push({
+              role: "assistant",
+              content: "Request failed.\n\n" + errorText,
+              ts: Date.now(),
+              error: true,
+            });
+            active.updatedAt = Date.now();
+            saveState();
+            renderHistory();
+          }
+          el.statusText.textContent = error.name === "AbortError" ? "Request cancelled" : "Last request failed";
+          renderStats();
+          toast(errorText);
         } finally {
           state.waiting = false;
           state.inFlight = null;
