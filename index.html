@@ -113,6 +113,11 @@
         background: rgba(15, 23, 42, 0.84);
       }
 
+      .btn-danger {
+        background: linear-gradient(130deg, #ef4444, #dc2626);
+        color: #fff;
+      }
+
       .meta-pill {
         border-radius: 999px;
         border: 1px solid var(--line);
@@ -611,6 +616,39 @@
         padding: 8px 12px;
       }
 
+      .dialog-shell {
+        position: relative;
+        width: min(460px, 100%);
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: linear-gradient(170deg, var(--panel), var(--panel-strong));
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.42);
+        padding: 14px;
+        display: grid;
+        gap: 12px;
+      }
+
+      .dialog-body {
+        display: grid;
+        gap: 10px;
+      }
+
+      .dialog-text {
+        color: var(--muted);
+        font-size: 0.88rem;
+        line-height: 1.55;
+      }
+
+      .dialog-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+      }
+
+      .dialog-actions .btn {
+        width: auto;
+      }
+
       .catalog-shell {
         position: relative;
         width: min(980px, 100%);
@@ -991,6 +1029,26 @@
       </div>
     </div>
 
+    <div id="actionModal" class="settings-modal" aria-hidden="true">
+      <div id="actionBackdrop" class="settings-overlay"></div>
+      <form id="actionForm" class="dialog-shell" role="dialog" aria-modal="true" aria-labelledby="actionTitle">
+        <div class="settings-title">
+          <strong id="actionTitle">Confirm</strong>
+          <button class="icon-btn" id="closeActionBtn" type="button">Close</button>
+        </div>
+
+        <div class="dialog-body">
+          <div id="actionText" class="dialog-text"></div>
+          <input class="input" id="actionInput" type="text" />
+        </div>
+
+        <div class="dialog-actions">
+          <button class="btn btn-ghost" id="actionCancelBtn" type="button">Cancel</button>
+          <button class="btn btn-primary" id="actionConfirmBtn" type="submit">Confirm</button>
+        </div>
+      </form>
+    </div>
+
     <script>
       const STORAGE_KEY = "ollama-modern-chat-v5";
       const DEFAULT_TEMP = 0.7;
@@ -1032,6 +1090,7 @@
           detail: "",
           error: false,
         },
+        actionDialog: null,
       };
 
       const el = {
@@ -1078,6 +1137,15 @@
         installPercentText: document.getElementById("installPercentText"),
         installProgressBar: document.getElementById("installProgressBar"),
         installStatusText: document.getElementById("installStatusText"),
+        actionModal: document.getElementById("actionModal"),
+        actionBackdrop: document.getElementById("actionBackdrop"),
+        actionForm: document.getElementById("actionForm"),
+        actionTitle: document.getElementById("actionTitle"),
+        actionText: document.getElementById("actionText"),
+        actionInput: document.getElementById("actionInput"),
+        actionCancelBtn: document.getElementById("actionCancelBtn"),
+        actionConfirmBtn: document.getElementById("actionConfirmBtn"),
+        closeActionBtn: document.getElementById("closeActionBtn"),
 
         modelSelect: document.getElementById("modelSelect"),
         temperatureInput: document.getElementById("temperatureInput"),
@@ -1153,6 +1221,11 @@
         if (info) {
           el.statsText.textContent = info;
         }
+      }
+
+      function syncModalLock() {
+        const anyOpen = [el.settingsModal, el.catalogModal, el.actionModal].some((node) => node.classList.contains("open"));
+        document.body.classList.toggle("modal-open", anyOpen);
       }
 
       function getActive() {
@@ -1758,9 +1831,15 @@
           del.type = "button";
           del.className = "icon-btn";
           del.textContent = "Delete";
-          del.addEventListener("click", (ev) => {
+          del.addEventListener("click", async (ev) => {
             ev.stopPropagation();
-            if (!window.confirm("Delete conversation '" + item.title + "'?")) {
+            const confirmed = await askConfirm({
+              title: "Delete conversation?",
+              text: "This will permanently remove '" + item.title + "' from your chat history.",
+              confirmText: "Delete",
+              confirmClass: "btn-danger",
+            });
+            if (!confirmed) {
               return;
             }
             state.conversations = state.conversations.filter((it) => it.id !== item.id);
@@ -1786,32 +1865,90 @@
       }
 
       function openSettings() {
-        document.body.classList.add("modal-open");
         el.settingsModal.classList.add("open");
         el.settingsModal.setAttribute("aria-hidden", "false");
+        syncModalLock();
       }
 
       function closeSettings() {
         el.settingsModal.classList.remove("open");
         el.settingsModal.setAttribute("aria-hidden", "true");
-        if (!el.catalogModal.classList.contains("open")) {
-          document.body.classList.remove("modal-open");
-        }
+        syncModalLock();
       }
 
       function openCatalog() {
         renderModelCatalog();
-        document.body.classList.add("modal-open");
         el.catalogModal.classList.add("open");
         el.catalogModal.setAttribute("aria-hidden", "false");
+        syncModalLock();
       }
 
       function closeCatalog() {
         el.catalogModal.classList.remove("open");
         el.catalogModal.setAttribute("aria-hidden", "true");
-        if (!el.settingsModal.classList.contains("open")) {
-          document.body.classList.remove("modal-open");
+        syncModalLock();
+      }
+
+      function resolveActionDialog(result) {
+        const resolver = state.actionDialog?.resolve;
+        state.actionDialog = null;
+        el.actionModal.classList.remove("open");
+        el.actionModal.setAttribute("aria-hidden", "true");
+        syncModalLock();
+        if (resolver) {
+          resolver(result);
         }
+      }
+
+      function openActionDialog(options) {
+        state.actionDialog = {
+          mode: options.mode || "confirm",
+          resolve: options.resolve,
+        };
+
+        el.actionTitle.textContent = options.title || "Confirm";
+        el.actionText.textContent = options.text || "";
+        el.actionConfirmBtn.textContent = options.confirmText || "Confirm";
+        el.actionCancelBtn.textContent = options.cancelText || "Cancel";
+        el.actionConfirmBtn.className = "btn " + (options.confirmClass || "btn-primary");
+
+        const wantsInput = (options.mode || "confirm") === "prompt";
+        el.actionInput.style.display = wantsInput ? "block" : "none";
+        el.actionInput.value = wantsInput ? (options.value || "") : "";
+        el.actionInput.placeholder = options.placeholder || "";
+
+        el.actionModal.classList.add("open");
+        el.actionModal.setAttribute("aria-hidden", "false");
+        syncModalLock();
+
+        window.setTimeout(() => {
+          if (wantsInput) {
+            el.actionInput.focus();
+            el.actionInput.select();
+          } else {
+            el.actionConfirmBtn.focus();
+          }
+        }, 0);
+      }
+
+      function askConfirm(options) {
+        return new Promise((resolve) => {
+          openActionDialog({
+            ...options,
+            mode: "confirm",
+            resolve,
+          });
+        });
+      }
+
+      function askPrompt(options) {
+        return new Promise((resolve) => {
+          openActionDialog({
+            ...options,
+            mode: "prompt",
+            resolve,
+          });
+        });
       }
 
       function handleInstallEvent(payload, fallbackModel) {
@@ -1946,7 +2083,13 @@
       async function removeModel(modelName) {
         const model = safeText(modelName, "");
         if (!model || state.catalogBusyModel) return;
-        if (!window.confirm("Remove model '" + model + "' from this PC?")) {
+        const confirmed = await askConfirm({
+          title: "Remove model?",
+          text: "This will delete '" + model + "' from this PC and free its storage space.",
+          confirmText: "Remove",
+          confirmClass: "btn-danger",
+        });
+        if (!confirmed) {
           return;
         }
 
@@ -2040,27 +2183,44 @@
 
       function clearMessages() {
         const active = getActive();
-        if (!active || !window.confirm("Clear messages?")) {
+        if (!active) {
           return;
         }
-        active.messages = [];
-        active.updatedAt = Date.now();
-        saveState();
-        syncActive();
+        askConfirm({
+          title: "Clear messages?",
+          text: "This will remove all messages from the current conversation, but keep the conversation itself.",
+          confirmText: "Clear",
+          confirmClass: "btn-danger",
+        }).then((confirmed) => {
+          if (!confirmed) {
+            return;
+          }
+          active.messages = [];
+          active.updatedAt = Date.now();
+          saveState();
+          syncActive();
+        });
       }
 
       function deleteConversation() {
         const active = getActive();
         if (!active) return;
-        if (!window.confirm("Delete conversation '" + active.title + "'?")) {
-          return;
-        }
-        state.conversations = state.conversations.filter((item) => item.id !== active.id);
-        if (!state.conversations.length) {
-          state.conversations = [createConversation("New chat")];
-        }
-        state.activeId = state.conversations[0].id;
-        syncActive();
+        askConfirm({
+          title: "Delete conversation?",
+          text: "This will permanently remove '" + active.title + "' from your chat history.",
+          confirmText: "Delete",
+          confirmClass: "btn-danger",
+        }).then((confirmed) => {
+          if (!confirmed) {
+            return;
+          }
+          state.conversations = state.conversations.filter((item) => item.id !== active.id);
+          if (!state.conversations.length) {
+            state.conversations = [createConversation("New chat")];
+          }
+          state.activeId = state.conversations[0].id;
+          syncActive();
+        });
       }
 
       function autoNameFirstPrompt(promptText) {
@@ -2288,10 +2448,16 @@
       function bindEvents() {
         el.newChatBtn.addEventListener("click", newConversation);
         el.duplicateBtn.addEventListener("click", () => duplicateConversation(state.activeId));
-        el.renameBtn.addEventListener("click", () => {
+        el.renameBtn.addEventListener("click", async () => {
           const active = getActive();
           if (!active) return;
-          const value = safeText(prompt("Rename conversation", active.title), "");
+          const value = safeText(await askPrompt({
+            title: "Rename conversation",
+            text: "Choose a short name for this conversation.",
+            value: active.title,
+            placeholder: "Conversation name",
+            confirmText: "Save",
+          }), "");
           if (!value) return;
           active.title = value.slice(0, 90);
           active.updatedAt = Date.now();
@@ -2312,6 +2478,17 @@
         el.settingsBackdrop.addEventListener("click", closeSettings);
         el.closeCatalogBtn.addEventListener("click", closeCatalog);
         el.catalogBackdrop.addEventListener("click", closeCatalog);
+        el.closeActionBtn.addEventListener("click", () => resolveActionDialog(state.actionDialog?.mode === "prompt" ? null : false));
+        el.actionBackdrop.addEventListener("click", () => resolveActionDialog(state.actionDialog?.mode === "prompt" ? null : false));
+        el.actionCancelBtn.addEventListener("click", () => resolveActionDialog(state.actionDialog?.mode === "prompt" ? null : false));
+        el.actionForm.addEventListener("submit", (event) => {
+          event.preventDefault();
+          if (state.actionDialog?.mode === "prompt") {
+            resolveActionDialog(el.actionInput.value);
+            return;
+          }
+          resolveActionDialog(true);
+        });
         el.catalogSearchInput.addEventListener("input", renderModelCatalog);
         el.refreshCatalogBtn.addEventListener("click", async () => {
           await refreshModels();
@@ -2326,7 +2503,9 @@
         });
 
         document.addEventListener("keydown", (event) => {
-          if (event.key === "Escape" && el.catalogModal.classList.contains("open")) {
+          if (event.key === "Escape" && el.actionModal.classList.contains("open")) {
+            resolveActionDialog(state.actionDialog?.mode === "prompt" ? null : false);
+          } else if (event.key === "Escape" && el.catalogModal.classList.contains("open")) {
             closeCatalog();
           } else if (event.key === "Escape" && el.settingsModal.classList.contains("open")) {
             closeSettings();
