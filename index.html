@@ -6,14 +6,15 @@
     <title>Ollama Studio</title>
     <style>
       :root {
-        --bg: #040712;
-        --panel: rgba(12, 18, 34, 0.84);
-        --panel-strong: rgba(17, 24, 43, 0.96);
-        --line: rgba(148, 163, 184, 0.24);
-        --text: #edf1ff;
-        --muted: #9aa6bf;
-        --accent: #22d3ee;
-        --accent-2: #60a5fa;
+        --bg: #343541;
+        --panel: #202123;
+        --panel-strong: #444654;
+        --line: #4e4f60;
+        --text: #ececf1;
+        --muted: #9ca3af;
+        --accent: #10a37f;
+        --accent-2: #0ea371;
+        --danger: #ff5a5f;
         --radius-lg: 18px;
         --radius-md: 12px;
       }
@@ -23,12 +24,9 @@
       body {
         margin: 0;
         min-height: 100vh;
-        font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+        font-family: "Arial", "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
         color: var(--text);
-        background:
-          radial-gradient(circle at 12% 2%, rgba(139, 92, 246, 0.24), transparent 38%),
-          radial-gradient(circle at 85% 88%, rgba(34, 211, 238, 0.23), transparent 42%),
-          linear-gradient(155deg, #05070f, #061027 45%, #040815 100%);
+        background: var(--bg);
       }
 
       body.modal-open {
@@ -37,45 +35,86 @@
 
       .app {
         width: 100%;
-        margin: 0 auto;
+        margin: 0;
         min-height: 100vh;
         display: grid;
-        grid-template-columns: 320px minmax(0, 1fr);
-        gap: 12px;
-        padding: 10px;
+        grid-template-columns: 280px minmax(0, 1fr);
+        gap: 0;
         align-items: stretch;
+        background: var(--bg);
       }
 
       .panel {
-        border: 1px solid var(--line);
-        border-radius: var(--radius-lg);
-        background: linear-gradient(160deg, var(--panel), var(--panel-strong));
-        backdrop-filter: blur(10px);
-        box-shadow: 0 22px 50px rgba(0, 0, 0, 0.32);
+        border: 0;
+        border-radius: 0;
+        background: transparent;
       }
 
       .sidebar {
         order: 1;
         position: sticky;
-        top: 10px;
+        top: 0;
         align-self: start;
-        height: calc(100vh - 20px);
-        padding: 14px;
+        height: 100vh;
+        padding: 14px 12px;
         display: flex;
         flex-direction: column;
-        gap: 12px;
+        gap: 10px;
+        background: var(--panel);
         overflow: hidden;
+        border-right: 1px solid rgba(255, 255, 255, 0.12);
       }
 
       .sidebar h1 {
+        color: #fff;
         margin: 4px 0;
         letter-spacing: 0.02em;
-        font-size: 1rem;
+        font-size: 1.05rem;
         font-weight: 600;
       }
 
-      .row {
+      .sidebar-toolbar,
+      .history {
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+      }
+
+      .sidebar-toolbar {
         display: grid;
+        gap: 10px;
+        padding: 10px;
+      }
+
+      .toolbar-status {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 8px;
+      }
+
+      .toolbar-label {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #9fb0ca;
+        font-weight: 650;
+      }
+
+      .toolbar-grid {
+        display: grid;
+        gap: 8px;
+      }
+
+      .toolbar-primary {
+        display: grid;
+        gap: 8px;
+      }
+
+      .toolbar-actions-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
         gap: 8px;
       }
 
@@ -84,38 +123,46 @@
       .select,
       .textarea {
         width: 100%;
-        border: 1px solid var(--line);
+        border: 1px solid rgba(255, 255, 255, 0.16);
         border-radius: 10px;
         color: var(--text);
-        background: rgba(9, 13, 24, 0.9);
+        background: #343541;
         padding: 9px 11px;
         font-size: 0.88rem;
       }
 
       .btn {
-        border: 0;
+        border: 1px solid rgba(255, 255, 255, 0.12);
         font-weight: 650;
         cursor: pointer;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         gap: 8px;
+        transition: background-color .15s ease, border-color .15s ease, transform .15s ease;
+        border-radius: 8px;
+        min-height: 36px;
       }
 
-      .btn:hover { filter: brightness(1.08); }
+      .btn:hover {
+        border-color: rgba(255, 255, 255, 0.3);
+      }
 
       .btn-primary {
+        border-color: transparent;
         background: linear-gradient(130deg, var(--accent), var(--accent-2));
-        color: #030712;
+        color: #f5f9f8;
       }
 
       .btn-ghost {
-        background: rgba(15, 23, 42, 0.84);
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text);
       }
 
       .btn-danger {
-        background: linear-gradient(130deg, #ef4444, #dc2626);
+        background: linear-gradient(130deg, #ff6f6f, #ff4449);
         color: #fff;
+        border-color: #ff5a5f;
       }
 
       .meta-pill {
@@ -127,6 +174,7 @@
         align-items: center;
         gap: 7px;
         font-size: 0.82rem;
+        background: rgba(15, 23, 42, 0.28);
       }
 
       .dot {
@@ -139,10 +187,10 @@
 
       .history {
         margin-top: 2px;
-        border: 1px solid var(--line);
-        border-radius: var(--radius-md);
+        border: 0;
+        border-radius: 12px;
         padding: 8px;
-        background: rgba(6, 11, 20, 0.68);
+        background: transparent;
         min-height: 0;
         flex: 1;
         display: flex;
@@ -163,7 +211,7 @@
       }
 
       .history-item {
-        border: 1px solid transparent;
+        border: 1px solid rgba(255, 255, 255, 0.08);
         border-radius: 10px;
         padding: 9px;
         cursor: pointer;
@@ -172,17 +220,18 @@
         gap: 6px;
         flex: 0 0 auto;
         transition: transform .16s ease, border-color .16s ease;
+        background: rgba(255, 255, 255, 0.025);
       }
 
       .history-item:hover {
         transform: translateY(-1px);
         border-color: var(--line);
-        background: rgba(255, 255, 255, 0.025);
+        background: rgba(255, 255, 255, 0.05);
       }
 
       .history-item.active {
-        border-color: rgba(96, 165, 250, 0.86);
-        background: rgba(96, 165, 250, 0.18);
+        border-color: #10a37f;
+        background: rgba(16, 163, 127, 0.18);
       }
 
       .history-item h3 {
@@ -232,23 +281,43 @@
 
       .main {
         order: 2;
-        min-height: calc(100vh - 20px);
+        min-height: 100vh;
         display: flex;
         flex-direction: column;
         min-width: 0;
+        background: var(--bg);
+        padding: 0;
       }
 
       .main-header {
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) auto;
-        align-items: start;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
         gap: 12px;
-        border-bottom: 1px solid var(--line);
-        padding: 14px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+        padding: 14px 16px;
+        background: #444654;
+        position: sticky;
+        top: 0;
+        z-index: 2;
       }
 
       .main-title {
         min-width: 0;
+      }
+
+      .main-title .input {
+        border: 0;
+        background: transparent;
+        padding: 0;
+        color: #fff;
+        font-size: 1.02rem;
+        font-weight: 600;
+      }
+
+      .main-title .input:focus {
+        outline: none;
+        box-shadow: none;
       }
 
       .header-actions {
@@ -261,13 +330,15 @@
 
       .header-actions .btn {
         width: auto;
+        background: transparent;
+        min-height: 32px;
+        padding: 6px 10px;
       }
 
       .status {
-        margin: 10px 14px;
-        border: 1px solid var(--line);
+        margin: 10px 16px 0;
         border-radius: 10px;
-        background: rgba(10, 14, 26, 0.75);
+        background: #2f3038;
         padding: 9px 12px;
         display: flex;
         justify-content: space-between;
@@ -277,10 +348,9 @@
       }
 
       .chat {
-        margin: 0 14px;
-        border: 1px solid var(--line);
-        border-radius: var(--radius-md);
-        background: rgba(7, 11, 22, 0.75);
+        margin: 0;
+        padding: 0;
+        background: transparent;
         min-height: 0;
         display: flex;
         flex-direction: column;
@@ -288,10 +358,13 @@
       }
 
       .chat-scroll {
+        max-width: 860px;
+        width: 100%;
+        margin: 0 auto;
+        padding: 18px 18px 22px;
         min-height: 0;
         flex: 1;
         overflow: auto;
-        padding: 18px;
         display: flex;
         flex-direction: column;
         gap: 14px;
@@ -299,27 +372,28 @@
 
       .bubble {
         max-width: min(100%, 1120px);
-        border: 1px solid var(--line);
         border-radius: 16px;
-        padding: 12px 13px;
+        padding: 14px 16px;
         line-height: 1.6;
         position: relative;
         animation: rise .16s ease;
-        box-shadow: 0 14px 36px rgba(0, 0, 0, 0.18);
+        box-shadow: none;
       }
 
       .user {
         align-self: flex-end;
-        max-width: min(78%, 920px);
-        background: linear-gradient(150deg, #22d3ee, #0ea5e9);
-        color: #0b1220;
+        max-width: min(78%, 860px);
+        background: #0f4f4f;
+        border: 1px solid rgba(16, 163, 127, 0.45);
+        color: #e6f8f2;
         font-weight: 500;
       }
 
       .assistant {
         align-self: flex-start;
-        width: min(100%, 1120px);
-        background: linear-gradient(180deg, rgba(24, 33, 54, 0.98), rgba(19, 28, 46, 0.98));
+        width: min(100%, 860px);
+        background: transparent;
+        color: var(--text);
       }
 
       .error {
@@ -350,15 +424,16 @@
         grid-template-columns: minmax(0, 1fr) auto;
         gap: 10px;
         align-items: end;
-        padding: 12px;
+        padding: 14px;
         position: sticky;
         bottom: 0;
         z-index: 3;
-        background:
-          linear-gradient(180deg, rgba(7, 11, 22, 0.2), rgba(7, 11, 22, 0.92) 20%, rgba(7, 11, 22, 0.98)),
-          rgba(7, 11, 22, 0.96);
+        max-width: 860px;
+        width: 100%;
+        margin: 0 auto;
+        border-top: 1px solid rgba(255, 255, 255, 0.12);
+        background: linear-gradient(180deg, rgba(52, 53, 65, 0.1), rgba(52, 53, 65, 0.95));
         backdrop-filter: blur(14px);
-        border-top: 1px solid rgba(148, 163, 184, 0.12);
       }
 
       .textarea {
@@ -373,9 +448,9 @@
       }
 
       .composer-frame {
-        border: 1px solid rgba(148, 163, 184, 0.16);
+        border: 1px solid rgba(255, 255, 255, 0.16);
         border-radius: 16px;
-        background: rgba(4, 8, 18, 0.84);
+        background: #2f3038;
         padding: 10px;
         box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
       }
@@ -421,7 +496,7 @@
 
       .composer-actions .btn {
         width: 56px;
-        min-height: 56px;
+        min-height: 52px;
         padding: 0;
         border-radius: 16px;
       }
@@ -437,8 +512,13 @@
       }
 
       .send-action {
+        width: auto;
+        min-width: 72px;
+        border-radius: 14px;
         font-size: 0.8rem;
         font-weight: 700;
+        background: #10a37f;
+        border-color: #10a37f;
       }
 
       .message {
@@ -499,7 +579,6 @@
         color: #cad8f4;
       }
 
-      .message code,
       .message pre,
       .composer,
       .textarea {
@@ -606,8 +685,10 @@
 
       .footer {
         color: var(--muted);
-        font-size: .73rem;
-        padding: 0 14px 14px;
+        font-size: .75rem;
+        text-align: center;
+        padding: 10px 14px 16px;
+        color: #8e97a9;
       }
 
       .settings-btn {
@@ -942,18 +1023,33 @@
           height: auto;
           max-height: 44vh;
           min-height: auto;
+          border-right: 0;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.12);
         }
-        .main-header { grid-template-columns: 1fr; }
         .header-actions { justify-content: flex-start; }
         .assistant,
         .user,
         .bubble { max-width: 100%; width: auto; }
         .catalog-toolbar { grid-template-columns: 1fr; }
+        .toolbar-actions-grid { grid-template-columns: 1fr 1fr; }
+        .toolbar-label { display: none; }
+        .chat-scroll {
+          max-width: 100%;
+          padding-left: 12px;
+          padding-right: 12px;
+        }
+        .composer {
+          max-width: 100%;
+          padding: 10px;
+        }
         .composer { grid-template-columns: 1fr; }
         .composer-actions {
           grid-template-columns: repeat(2, 56px);
           justify-content: flex-end;
         }
+        .main { padding-top: env(safe-area-inset-top); }
+        .main-header { padding: 12px; }
+        .status { margin: 10px 12px 0; }
       }
     </style>
   </head>
@@ -964,19 +1060,20 @@
       <section class="panel sidebar">
         <h1>Ollama Studio</h1>
 
-        <div class="row">
-          <div class="meta-pill">
-            <span class="dot" id="connectionDot"></span>
-            <span id="connectionText">Connecting…</span>
-          </div>
-
+        <div class="sidebar-toolbar">
           <button class="btn btn-primary" id="newChatBtn" type="button">+ New chat</button>
-          <div class="control-grid">
+          <div class="toolbar-actions-grid">
             <button class="btn btn-ghost" id="refreshModelsBtn" type="button">Refresh models</button>
+            <button class="btn btn-ghost" id="discoverModelsBtn" type="button">Discover models</button>
             <button class="btn btn-ghost" id="importBtn" type="button">Import JSON</button>
+            <button class="btn btn-ghost" id="exportAllBtn" type="button">Export all chats</button>
           </div>
-          <button class="btn btn-ghost" id="discoverModelsBtn" type="button">Discover models</button>
-          <button class="btn btn-ghost" id="exportAllBtn" type="button">Export all chats</button>
+          <div class="toolbar-status">
+            <span class="meta-pill">
+              <span class="dot" id="connectionDot"></span>
+              <span id="connectionText">Connecting…</span>
+            </span>
+          </div>
         </div>
 
         <div class="history">
@@ -1021,7 +1118,7 @@
           <form id="chatForm" class="composer">
             <div class="composer-main">
               <div class="composer-frame">
-                <textarea id="messageInput" class="textarea" placeholder="Type your message"></textarea>
+                <textarea id="messageInput" class="textarea" placeholder="Send a message"></textarea>
               </div>
               <div class="helper">
                 <span id="helperText">Enter = send, Shift + Enter = new line</span>
