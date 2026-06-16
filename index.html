@@ -248,6 +248,14 @@
         display: flex;
         gap: 6px;
         flex-wrap: wrap;
+        align-items: center;
+        justify-content: flex-end;
+        opacity: 0;
+        max-height: 0;
+        overflow: hidden;
+        pointer-events: none;
+        transform: translateY(-2px);
+        transition: opacity .14s ease, max-height .16s ease, transform .16s ease;
       }
 
       .icon-btn {
@@ -259,6 +267,53 @@
         font-size: 0.7rem;
         line-height: 1;
         cursor: pointer;
+      }
+
+      .history-item-head {
+        display: flex;
+        align-items: flex-start;
+        gap: 8px;
+      }
+
+      .history-item-title {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .history-item-menu-btn {
+        width: 28px;
+        min-width: 28px;
+        height: 28px;
+        padding: 0;
+        border-radius: 999px;
+        font-size: 1rem;
+        line-height: 1;
+        opacity: 0.78;
+      }
+
+      .history-item-menu-btn:hover {
+        opacity: 1;
+      }
+
+      .history-item:hover .history-item-menu-btn,
+      .history-item.actions-open .history-item-menu-btn {
+        opacity: 1;
+      }
+
+      .history-item:hover .actions,
+      .history-item.actions-open .actions {
+        opacity: 1;
+        max-height: 60px;
+        transform: translateY(0);
+        pointer-events: auto;
+      }
+
+      .history-item.actions-open .history-item-menu-btn {
+        display: none;
+      }
+
+      .header-actions {
+        display: none;
       }
 
       .control-grid {
@@ -320,19 +375,10 @@
         box-shadow: none;
       }
 
-      .header-actions {
-        display: flex;
-        gap: 8px;
-        flex-wrap: wrap;
-        justify-content: flex-end;
-        align-items: flex-start;
-      }
-
-      .header-actions .btn {
-        width: auto;
-        background: transparent;
-        min-height: 32px;
-        padding: 6px 10px;
+      @media (max-width: 640px) {
+        .toolbar-actions-grid {
+          grid-template-columns: 1fr 1fr;
+        }
       }
 
       .status {
@@ -1026,7 +1072,6 @@
           border-right: 0;
           border-bottom: 1px solid rgba(255, 255, 255, 0.12);
         }
-        .header-actions { justify-content: flex-start; }
         .assistant,
         .user,
         .bubble { max-width: 100%; width: auto; }
@@ -1097,12 +1142,6 @@
           <div class="main-header">
             <div class="main-title">
               <input class="input" id="titleInput" value="New chat" />
-            </div>
-            <div class="header-actions">
-              <button class="btn btn-ghost" id="duplicateBtn" type="button">Duplicate</button>
-              <button class="btn btn-ghost" id="renameBtn" type="button">Rename</button>
-              <button class="btn btn-ghost" id="clearBtn" type="button">Clear</button>
-              <button class="btn btn-ghost" id="deleteBtn" type="button">Delete</button>
             </div>
           </div>
 
@@ -1180,6 +1219,7 @@
         <div class="settings-actions">
           <button class="btn btn-ghost" id="stopBtn" type="button" disabled>Stop</button>
           <button class="btn btn-ghost" id="exportBtn" type="button">Export current</button>
+          <button class="btn btn-ghost" id="importCurrentBtn" type="button">Import current</button>
           <button class="btn btn-primary" id="closeSettingsSaveBtn" type="button">Done</button>
         </div>
       </div>
@@ -1293,6 +1333,7 @@
         newChatBtn: document.getElementById("newChatBtn"),
         refreshModelsBtn: document.getElementById("refreshModelsBtn"),
         importBtn: document.getElementById("importBtn"),
+        importCurrentBtn: document.getElementById("importCurrentBtn"),
         discoverModelsBtn: document.getElementById("discoverModelsBtn"),
         exportAllBtn: document.getElementById("exportAllBtn"),
 
@@ -1303,10 +1344,6 @@
         historyList: document.getElementById("historyList"),
 
         titleInput: document.getElementById("titleInput"),
-        duplicateBtn: document.getElementById("duplicateBtn"),
-        renameBtn: document.getElementById("renameBtn"),
-        clearBtn: document.getElementById("clearBtn"),
-        deleteBtn: document.getElementById("deleteBtn"),
         exportBtn: document.getElementById("exportBtn"),
         settingsToggleBtn: document.getElementById("settingsToggleBtn"),
         stopBtn: document.getElementById("stopBtn"),
@@ -1903,6 +1940,79 @@
         return container;
       }
 
+      function createActionButton(label, className = "icon-btn") {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = className;
+        button.textContent = label;
+        return button;
+      }
+
+      function openMessageEditor(active, messageIndex, row, message) {
+        const original = safeText(message.content, "");
+        row.innerHTML = "";
+        row.className = "bubble user";
+        if (message.error) {
+          row.classList.add("error");
+        }
+
+        const editor = document.createElement("textarea");
+        editor.className = "textarea";
+        editor.value = original;
+        editor.rows = Math.max(4, Math.min(16, original.split("\n").length + 1));
+        editor.style.minHeight = "84px";
+
+        const meta = document.createElement("div");
+        meta.className = "meta";
+        meta.textContent = "You · " + formatTime(message.ts || Date.now());
+
+        const actions = document.createElement("div");
+        actions.className = "message-actions";
+
+        const saveBtn = createActionButton("Save");
+        saveBtn.addEventListener("click", () => {
+          const nextText = safeText(editor.value, "");
+          if (!nextText) {
+            toast("Message cannot be empty");
+            return;
+          }
+          active.messages[messageIndex].content = nextText;
+          active.messages[messageIndex].ts = Date.now();
+          active.updatedAt = Date.now();
+          saveState();
+          renderMessages();
+          renderHistory();
+          renderStats();
+        });
+
+        const resubmitBtn = createActionButton("Save & resubmit", "btn btn-primary");
+        resubmitBtn.addEventListener("click", async () => {
+          const nextText = safeText(editor.value, "");
+          if (!nextText) {
+            toast("Message cannot be empty");
+            return;
+          }
+          await sendTextMessage(active, {
+            messageText: nextText,
+            replaceIndex: messageIndex,
+            autoName: false,
+          });
+        });
+
+        const cancelBtn = createActionButton("Cancel");
+        cancelBtn.addEventListener("click", () => {
+          renderMessages();
+        });
+
+        actions.appendChild(saveBtn);
+        actions.appendChild(resubmitBtn);
+        actions.appendChild(cancelBtn);
+
+        row.appendChild(editor);
+        row.appendChild(meta);
+        row.appendChild(actions);
+      }
+
       function renderMessages() {
         const active = getActive();
         el.chatScroll.innerHTML = "";
@@ -1912,7 +2022,7 @@
           return;
         }
 
-        for (const msg of active.messages) {
+        active.messages.forEach((msg, index) => {
           const row = document.createElement("div");
           const role = msg.role === "user" ? "user" : "assistant";
           row.className = "bubble " + role;
@@ -1929,21 +2039,42 @@
           const actions = document.createElement("div");
           actions.className = "message-actions";
 
-          const copy = document.createElement("button");
-          copy.type = "button";
-          copy.className = "icon-btn";
-          copy.textContent = "Copy";
+          const copy = createActionButton("Copy");
           copy.addEventListener("click", async () => {
             await navigator.clipboard.writeText(msg.content || "");
             toast("Copied");
           });
 
           actions.appendChild(copy);
+
+          if (msg.role === "user") {
+            const edit = createActionButton("Edit");
+            edit.addEventListener("click", () => {
+              openMessageEditor(active, index, row, msg);
+            });
+
+            const resubmit = createActionButton("Resubmit");
+            resubmit.addEventListener("click", async () => {
+              const currentText = safeText(msg.content, "");
+              if (!currentText) {
+                return;
+              }
+              await sendTextMessage(active, {
+                messageText: currentText,
+                replaceIndex: index,
+                autoName: false,
+              });
+            });
+
+            actions.appendChild(edit);
+            actions.appendChild(resubmit);
+          }
+
           row.appendChild(body);
           row.appendChild(meta);
           row.appendChild(actions);
           el.chatScroll.appendChild(row);
-        }
+        });
 
         el.chatScroll.scrollTop = el.chatScroll.scrollHeight;
       }
@@ -1993,11 +2124,45 @@
             row.classList.add("active");
           }
 
+          const head = document.createElement("div");
+          head.className = "history-item-head";
+
+          const titleWrap = document.createElement("div");
+          titleWrap.className = "history-item-title";
+
           const h3 = document.createElement("h3");
           h3.textContent = item.title;
+          titleWrap.appendChild(h3);
 
           const actions = document.createElement("div");
           actions.className = "actions";
+
+          const menuBtn = document.createElement("button");
+          menuBtn.type = "button";
+          menuBtn.className = "icon-btn history-item-menu-btn";
+          menuBtn.textContent = "⋮";
+          menuBtn.setAttribute("aria-label", "Open conversation actions");
+          menuBtn.addEventListener("click", (ev) => {
+            ev.stopPropagation();
+            const alreadyOpen = row.classList.contains("actions-open");
+            el.historyList.querySelectorAll(".history-item.actions-open").forEach((r) => {
+              r.classList.remove("actions-open");
+            });
+            if (!alreadyOpen) {
+              row.classList.add("actions-open");
+            }
+          });
+
+          const createIconButton = (label, className = "icon-btn") => {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.className = className;
+            button.textContent = label;
+            button.addEventListener("click", (ev) => {
+              ev.stopPropagation();
+            });
+            return button;
+          };
 
           const pin = document.createElement("button");
           pin.type = "button";
@@ -2011,50 +2176,73 @@
             renderHistory();
           });
 
-          const dup = document.createElement("button");
-          dup.type = "button";
-          dup.className = "icon-btn";
-          dup.textContent = "Duplicate";
-          dup.addEventListener("click", (ev) => {
-            ev.stopPropagation();
+          const dup = createIconButton("Duplicate");
+          dup.addEventListener("click", () => {
             duplicateConversation(item.id);
           });
 
-          const del = document.createElement("button");
-          del.type = "button";
-          del.className = "icon-btn";
-          del.textContent = "Delete";
-          del.addEventListener("click", async (ev) => {
-            ev.stopPropagation();
-            const confirmed = await askConfirm({
-              title: "Delete conversation?",
-              text: "This will permanently remove '" + item.title + "' from your chat history.",
-              confirmText: "Delete",
-              confirmClass: "btn-danger",
-            });
-            if (!confirmed) {
-              return;
-            }
-            state.conversations = state.conversations.filter((it) => it.id !== item.id);
-            if (state.activeId === item.id) {
-              state.activeId = state.conversations[0]?.id || "";
-            }
-            if (!state.conversations.length) {
-              state.conversations = [createConversation("New chat")];
-            }
-            syncActive();
-            toast("Conversation deleted");
+          const rename = createIconButton("Rename");
+          rename.addEventListener("click", () => {
+            renameConversation(item.id);
+          });
+
+          const clear = createIconButton("Clear");
+          clear.addEventListener("click", () => {
+            clearMessages(item.id);
+          });
+
+          const del = createIconButton("Delete", "icon-btn btn-danger");
+          del.addEventListener("click", () => {
+            deleteConversation(item.id);
           });
 
           actions.appendChild(pin);
           actions.appendChild(dup);
+          actions.appendChild(rename);
+          actions.appendChild(clear);
           actions.appendChild(del);
 
-          row.appendChild(h3);
+          head.appendChild(titleWrap);
+          head.appendChild(menuBtn);
+          row.appendChild(head);
           row.appendChild(actions);
+
           row.addEventListener("click", () => setActiveConversation(item.id));
           el.historyList.appendChild(row);
         }
+      }
+
+      function closeOpenHistoryMenus(exceptRow = null) {
+        if (!el.historyList) {
+          return;
+        }
+        el.historyList.querySelectorAll(".history-item.actions-open").forEach((row) => {
+          if (row !== exceptRow) {
+            row.classList.remove("actions-open");
+          }
+        });
+      }
+
+      function renameConversation(conversationId = state.activeId) {
+        const active = conversationId ? state.conversations.find((item) => item.id === conversationId) : getActive();
+        if (!active) {
+          return;
+        }
+        askPrompt({
+          title: "Rename conversation",
+          text: "Choose a short name for this conversation.",
+          value: active.title,
+          placeholder: "Conversation name",
+          confirmText: "Save",
+        }).then((value) => {
+          const nextTitle = safeText(value, "");
+          if (!nextTitle) {
+            return;
+          }
+          active.title = nextTitle.slice(0, 90);
+          active.updatedAt = Date.now();
+          syncActive();
+        });
       }
 
       function openSettings() {
@@ -2374,8 +2562,8 @@
         toast("Conversation duplicated");
       }
 
-      function clearMessages() {
-        const active = getActive();
+      function clearMessages(conversationId = state.activeId) {
+        const active = conversationId ? state.conversations.find((item) => item.id === conversationId) : getActive();
         if (!active) {
           return;
         }
@@ -2395,8 +2583,8 @@
         });
       }
 
-      function deleteConversation() {
-        const active = getActive();
+      function deleteConversation(conversationId = state.activeId) {
+        const active = conversationId ? state.conversations.find((item) => item.id === conversationId) : getActive();
         if (!active) return;
         askConfirm({
           title: "Delete conversation?",
@@ -2487,15 +2675,38 @@
         }
       }
 
-      async function sendMessage() {
-        const active = getActive();
-        if (!active || state.waiting) return;
+      async function sendTextMessage(active, options = {}) {
+        const messageText = safeText(options.messageText, "");
+        const replaceIndex = Number.isInteger(options.replaceIndex) ? options.replaceIndex : -1;
+        const autoName = options.autoName !== false;
 
-        const messageText = safeText(el.messageInput.value, "");
-        if (!messageText) return;
+        if (!active || state.waiting || !messageText) return;
         if (!el.modelSelect.value) {
           toast("Pick a model first");
           return;
+        }
+
+        if (replaceIndex >= 0) {
+          if (replaceIndex >= active.messages.length) {
+            return;
+          }
+          if (active.messages[replaceIndex]?.role !== "user") {
+            toast("Only user messages can be edited");
+            return;
+          }
+          active.messages = active.messages.slice(0, replaceIndex + 1);
+          active.messages[replaceIndex] = {
+            ...active.messages[replaceIndex],
+            role: "user",
+            content: messageText,
+            ts: Date.now(),
+          };
+        } else {
+          active.messages.push({
+            role: "user",
+            content: messageText,
+            ts: Date.now(),
+          });
         }
 
         active.model = el.modelSelect.value;
@@ -2503,16 +2714,10 @@
         active.topP = Number(el.topPInput.value);
         active.maxTokens = Number(el.maxTokensInput.value);
         active.updatedAt = Date.now();
-        autoNameFirstPrompt(messageText);
+        if (autoName) {
+          autoNameFirstPrompt(messageText);
+        }
 
-        active.messages.push({
-          role: "user",
-          content: messageText,
-          ts: Date.now(),
-        });
-
-        el.messageInput.value = "";
-        el.helperText.textContent = "0 words";
         renderMessages();
         renderHistory();
         renderStats();
@@ -2589,6 +2794,20 @@
         }
       }
 
+      async function sendMessage() {
+        const active = getActive();
+        if (!active || state.waiting) return;
+
+        const messageText = safeText(el.messageInput.value, "");
+        if (!messageText) return;
+
+        el.messageInput.value = "";
+        el.helperText.textContent = "0 words";
+        await sendTextMessage(active, {
+          messageText,
+        });
+      }
+
       function stopConversation() {
         if (!state.inFlight) return;
         state.inFlight.abort();
@@ -2623,6 +2842,30 @@
         URL.revokeObjectURL(url);
       }
 
+      function parseImportedConversations(payload) {
+        if (!payload) return [];
+        if (Array.isArray(payload)) {
+          return payload;
+        }
+        if (Array.isArray(payload?.conversations)) {
+          return payload.conversations;
+        }
+        if (payload && typeof payload === "object" && Array.isArray(payload.messages)) {
+          return [payload];
+        }
+        return [];
+      }
+
+      function pickConversationFromFilePayload(payload) {
+        const raw = parseImportedConversations(payload);
+        if (!Array.isArray(raw) || !raw.length) {
+          return [];
+        }
+        return raw
+          .filter((item) => item && Array.isArray(item.messages))
+          .map(normalizeConversation);
+      }
+
       function importConversations() {
         const input = document.createElement("input");
         input.type = "file";
@@ -2631,12 +2874,11 @@
           const file = input.files && input.files[0];
           if (!file) return;
           const payload = parseJSON(await file.text(), null);
-          const raw = Array.isArray(payload) ? payload : payload?.conversations;
-          if (!Array.isArray(raw)) {
+          const imported = pickConversationFromFilePayload(payload);
+          if (!imported.length) {
             toast("Invalid import format");
             return;
           }
-          const imported = raw.map(normalizeConversation);
           state.conversations = imported.concat(state.conversations);
           state.activeId = imported[0].id;
           saveState();
@@ -2646,30 +2888,68 @@
         input.click();
       }
 
+      function importCurrentConversation() {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = "application/json";
+        input.addEventListener("change", async () => {
+          const file = input.files && input.files[0];
+          if (!file) return;
+          const payload = parseJSON(await file.text(), null);
+          const imported = pickConversationFromFilePayload(payload);
+          if (!imported.length) {
+            toast("Invalid import format");
+            return;
+          }
+          const active = getActive();
+          if (!active) {
+            state.conversations = imported.concat(state.conversations);
+            state.activeId = state.conversations[0].id;
+            saveState();
+            syncActive();
+            toast("Imported " + imported.length + " conversations");
+            return;
+          }
+
+          const replacement = imported[0];
+          replacement.id = active.id;
+          replacement.createdAt = active.createdAt;
+          replacement.updatedAt = Date.now();
+          let replaced = false;
+          state.conversations = state.conversations.map((item) => {
+            if (item.id === active.id) {
+              replaced = true;
+              return replacement;
+            }
+            return item;
+          });
+          if (!replaced) {
+            state.conversations.unshift(replacement);
+            state.activeId = replacement.id;
+          }
+          saveState();
+          syncActive();
+          toast("Current chat replaced from import");
+        });
+        input.click();
+      }
+
       function bindEvents() {
         el.newChatBtn.addEventListener("click", newConversation);
-        el.duplicateBtn.addEventListener("click", () => duplicateConversation(state.activeId));
-        el.renameBtn.addEventListener("click", async () => {
-          const active = getActive();
-          if (!active) return;
-          const value = safeText(await askPrompt({
-            title: "Rename conversation",
-            text: "Choose a short name for this conversation.",
-            value: active.title,
-            placeholder: "Conversation name",
-            confirmText: "Save",
-          }), "");
-          if (!value) return;
-          active.title = value.slice(0, 90);
-          active.updatedAt = Date.now();
-          syncActive();
+        document.addEventListener("click", (event) => {
+          if (!event.target.closest(".history-list")) {
+            closeOpenHistoryMenus();
+          }
         });
-
-        el.clearBtn.addEventListener("click", clearMessages);
-        el.deleteBtn.addEventListener("click", deleteConversation);
+        el.historyList.addEventListener("click", (event) => {
+          if (!event.target.closest(".history-item")) {
+            closeOpenHistoryMenus();
+          }
+        });
         el.exportBtn.addEventListener("click", exportCurrentConversation);
         el.exportAllBtn.addEventListener("click", exportAllConversations);
         el.importBtn.addEventListener("click", importConversations);
+        el.importCurrentBtn.addEventListener("click", importCurrentConversation);
         el.refreshModelsBtn.addEventListener("click", refreshModels);
         el.discoverModelsBtn.addEventListener("click", openCatalog);
         el.stopBtn.addEventListener("click", stopConversation);
