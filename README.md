@@ -60,7 +60,53 @@ Or just download the ZIP from GitHub and extract it.
 
 ---
 
-### 3. Start the Web App
+### 3. Create a Python Virtual Environment
+
+This step is recommended because it keeps Python projects clean and organized.
+
+From inside the project folder, run:
+
+```bash
+python3 -m venv venv
+```
+
+Activate it:
+
+#### On Linux / macOS
+
+```bash
+source venv/bin/activate
+```
+
+#### On Windows PowerShell
+
+```powershell
+venv\Scripts\Activate.ps1
+```
+
+After activation, your terminal usually shows something like:
+
+```text
+(venv)
+```
+
+---
+
+### 4. Install Python Requirements
+
+Run:
+
+```bash
+pip install -r requirements.txt
+```
+
+Note:
+
+This project currently uses only Python standard library modules, so there may be nothing extra to install. The `requirements.txt` file is included to keep setup familiar and beginner-friendly.
+
+---
+
+### 5. Start the Web App
 
 From inside the project folder, run:
 
@@ -77,7 +123,7 @@ Ollama backend: http://127.0.0.1:11434
 
 ---
 
-### 4. Open It in Your Browser
+### 6. Open It in Your Browser
 
 Open:
 
@@ -253,10 +299,13 @@ That means your prompts stay on your machine unless you intentionally use a mode
 If you have never used Ollama before, the easiest path is:
 
 1. Install Ollama
-2. Run this app with `python3 app.py`
-3. Open the browser page
-4. Click `Discover models`
-5. Install `gemma4:e2b`
-6. Start chatting
+2. Create the virtual environment with `python3 -m venv venv`
+3. Activate it
+4. Run `pip install -r requirements.txt`
+5. Run this app with `python3 app.py`
+6. Open the browser page
+7. Click `Discover models`
+8. Install `gemma4:e2b`
+9. Start chatting
 
 That is the simplest working setup.
